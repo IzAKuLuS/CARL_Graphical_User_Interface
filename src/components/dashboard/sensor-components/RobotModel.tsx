@@ -42,9 +42,8 @@ const RobotModel: React.FC<RobotModelProps> = ({ robotId }) => {
   const [robotState, setRobotState] = useState<Odometry | null>(null);
 
   const { isConnected, subscribe } = useROS({
-    url: "ws://localhost:9090",
-    autoConnect: true,
-  });
+  autoConnect: true,
+});
 
   useEffect(() => {
     const timer = setTimeout(() => {

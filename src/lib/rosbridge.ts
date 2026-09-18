@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { getRosbridgeUrl } from "@/lib/rosConfig";
 import type {
   ROSMessage,
   ROSCallback,
@@ -24,7 +25,7 @@ class ROSBridge extends EventEmitter {
   private readonly RECONNECT_BASE_MS = 1000;
   private readonly RECONNECT_MAX_MS = 30000;
 
-  async connect(url: string = "ws://localhost:9090"): Promise<void> {
+  async connect(url: string = getRosbridgeUrl()): Promise<void> {
     if (this.connected) return;
     if (this.connectPromise) return this.connectPromise;
 

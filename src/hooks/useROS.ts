@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import rosbridge from "@/lib/rosbridge";
 import type { ROSCallback } from "@/types/ros";
+import { getRosbridgeUrl } from "@/lib/rosConfig";
 
 interface UseROSOptions {
   url?: string;
@@ -21,7 +22,7 @@ function resolveTopic(topic: string, robotId?: number): string {
 
 export function useROS(options: UseROSOptions = {}) {
   const {
-    url = "ws://localhost:9090",
+    url = getRosbridgeUrl(),
     autoConnect = true,
     onConnected,
     onDisconnected,

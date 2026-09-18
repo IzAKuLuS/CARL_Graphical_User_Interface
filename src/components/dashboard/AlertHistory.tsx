@@ -104,7 +104,7 @@ export default function AlertHistory() {
   const disconnectTimeRef = useRef<number | null>(null);
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const { subscribe, publish, isConnected } = useROS({ url: 'ws://localhost:9090' });
+  const { subscribe, publish, isConnected } = useROS();
   const prevConnectedRef = useRef(isConnected);
 
   const robotIds = useMemo(

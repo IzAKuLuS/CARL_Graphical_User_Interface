@@ -56,9 +56,7 @@ const DepthData: React.FC<DepthDataProps> = ({ robotId }) => {
   const prevDepthRef = useRef<number>(0);
   const lastUpdateTimeRef = useRef<number>(Date.now());
 
-  const { subscribe } = useROS({
-    url: 'ws://localhost:9090'
-  });
+  const { subscribe } = useROS();
 
   useEffect(() => {
     const processLaserScan = (message: LaserScan) => {

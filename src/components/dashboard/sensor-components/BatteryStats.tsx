@@ -30,7 +30,7 @@ interface BatteryStateMessage {
 const BatteryStats: React.FC<BatteryStatsProps> = ({ robotId }) => {
   const [voltage, setVoltage] = useState<number | null>(null);
   const [voltageHistory, setVoltageHistory] = useState<VoltageData[]>([]);
-  const { subscribe } = useROS({ url: 'ws://localhost:9090' });
+  const { subscribe } = useROS();
 
   useEffect(() => {
     const handleBattery = (message: BatteryStateMessage) => {

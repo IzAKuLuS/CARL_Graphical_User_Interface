@@ -16,7 +16,7 @@ interface BatteryStateMessage {
 }
 
 export default function FleetOverview() {
-  const { isConnected } = useROS({ url: 'ws://localhost:9090' });
+  const { isConnected } = useROS();
   const robotIds = useDiscoveredRobots();
   const [batteries, setBatteries] = useState<Record<number, number | null>>({});
 

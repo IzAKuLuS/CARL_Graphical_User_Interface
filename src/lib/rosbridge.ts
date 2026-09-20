@@ -1,11 +1,11 @@
 import { EventEmitter } from "events";
+import { getRosbridgeUrl } from "@/lib/rosConfig";
 import type {
   ROSMessage,
   ROSCallback,
   ROSMessageData,
   ROSMessageBase,
 } from "@/types/ros";
-import { getRosbridgeUrl } from "@/lib/rosConfig";
 
 function isBase64(s: string): boolean {
   return s.length > 0 && s.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(s);

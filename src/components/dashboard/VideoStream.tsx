@@ -54,8 +54,7 @@ const VideoStream: React.FC<VideoStreamProps> = ({ topic, robotId }) => {
     const unsubscribe = subscribe(
       compressedTopic,
       'sensor_msgs/CompressedImage',
-      processImage,
-      robotId
+      processImage
     );
 
     return () => {

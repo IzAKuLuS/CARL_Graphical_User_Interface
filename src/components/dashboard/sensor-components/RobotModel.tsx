@@ -42,7 +42,6 @@ const RobotModel: React.FC<RobotModelProps> = ({ robotId }) => {
   const [robotState, setRobotState] = useState<Odometry | null>(null);
 
   const { isConnected, subscribe } = useROS({
-    url: "ws://localhost:9090",
     autoConnect: true,
   });
 
@@ -404,7 +403,6 @@ const RobotModel: React.FC<RobotModelProps> = ({ robotId }) => {
       (message) => {
         setRobotState(message);
       },
-      robotId,
     );
 
     // /tf is SHARED — no robotId. Filter incoming transforms by prefix.

@@ -1,292 +1,143 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import Split from "split.js";
-import { usePathname, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Grid, Plus, Minus, Activity, ExternalLink, ChevronLeft } from "lucide-react";
-import Link from "next/link";
-
-import RobotSelector from "@/components/ui/RobotSelector";
-import { useDiscoveredRobots } from "@/hooks/useDiscoveredRobots";
-import { useRobotSelection } from "@/hooks/useRobotSelection";
+import { Activity, Cable, CarFront, RefreshCw } from "lucide-react";
+import EncoderTelemetryPanel from "@/components/dashboard/EncoderTelemetryPanel";
+import { useCarlPresence } from "@/hooks/useCarlPresence";
 import { useROS } from "@/hooks/useROS";
+import { CARL_TOPICS, type TopicEntry } from "@/lib/rosTopics";
 
-const TelemetryPanel = dynamic(() => import("./TelemetryPanel"), {
-  loading: () => (
-    <div className="h-full bg-[#1a1a1a] rounded-sm p-2 border border-[#2a2a2a] flex items-center justify-center">
-      <span className="text-gray-400">Loading Telemetry...</span>
-    </div>
-  ),
-  ssr: false,
-});
+const COMMAND_TOPICS = [
+  ["Throttle command", CARL_TOPICS.throttleCommand],
+  ["Emergency stop", CARL_TOPICS.estop],
+] as const satisfies ReadonlyArray<readonly [string, TopicEntry]>;
 
-const VideoGrid = dynamic(() => import("./VideoGrid"), {
-  loading: () => (
-    <div className="h-full bg-[#1e1e1e] rounded-sm p-2 border border-[#333333] flex items-center justify-center">
-      <span className="text-gray-400">Loading Video Grid...</span>
-    </div>
-  ),
-  ssr: false,
-});
+function StatusDot({ active }: { active: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`h-2.5 w-2.5 rounded-full ${
+        active ? "bg-green-500" : "bg-gray-600"
+      }`}
+    />
+  );
+}
 
-const Controls = dynamic(() => import("./Controls"), {
-  loading: () => (
-    <div className="h-full bg-[#1e1e1e] rounded-sm p-2 border border-[#333333] flex items-center justify-center">
-      <span className="text-gray-400">Loading Controls...</span>
-    </div>
-  ),
-  ssr: false,
-});
-
-const SensorData = dynamic(() => import("./SensorData"), {
-  loading: () => (
-    <div className="h-full bg-[#1e1e1e] rounded-sm p-2 border border-[#333333] flex items-center justify-center">
-      <span className="text-gray-400">Loading Sensor Data...</span>
-    </div>
-  ),
-  ssr: false,
-});
-
-const AlertHistory = dynamic(() => import("./AlertHistory"), {
-  loading: () => (
-    <div className="h-full bg-[#1a1a1a] rounded-sm p-2 border border-[#2a2a2a] flex items-center justify-center">
-      <span className="text-gray-400">Loading Alerts...</span>
-    </div>
-  ),
-  ssr: false,
-});
+function TopicList({
+  title,
+  topics,
+  muted = false,
+}: {
+  title: string;
+  topics: ReadonlyArray<readonly [string, TopicEntry]>;
+  muted?: boolean;
+}) {
+  return (
+    <section className="rounded-lg border border-[#333333] bg-[#1e1e1e] p-4">
+      <h2 className="mb-3 text-sm font-semibold text-[#00a5ff]">{title}</h2>
+      <div className="space-y-2">
+        {topics.map(([label, topic]) => (
+          <div
+            key={topic.path}
+            className="rounded-md border border-[#2f2f2f] bg-[#242424] px-3 py-2"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-gray-200">{label}</span>
+              {muted && (
+                <span className="rounded bg-yellow-950 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-yellow-400">
+                  Disabled
+                </span>
+              )}
+            </div>
+            <code className="mt-1 block text-xs text-green-400">
+              {topic.path}
+            </code>
+            <code className="block text-[11px] text-gray-500">{topic.type}</code>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function DashboardClient() {
-  const mainSplitRef = useRef(null);
-  const leftSplitRef = useRef(null);
-  const rightSplitRef = useRef(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const router = useRouter();
-  const pathname = usePathname();
+  const { isConnected, isConnecting, connect } = useROS();
+  const carlState = useCarlPresence();
+  const isCarlAvailable = carlState === "carl-available";
 
-  const { isConnected } = useROS();
-  const robots = useDiscoveredRobots();
-  const { selectedRobotId, selectRobot, isSwitchingRobot } = useRobotSelection();
-  const hasRobot = selectedRobotId !== null;
-
-  const handleRobotSelect = (id: number) => {
-    if (pathname.startsWith("/robot/")) {
-      router.push(`/robot/tb3_${id}`);
-      return;
+  const carlStatusLabel = (() => {
+    switch (carlState) {
+      case "carl-available":
+        return "CARL bridge detected";
+      case "checking":
+        return "Checking ROS graph";
+      case "carl-bridge-unavailable":
+        return "CARL bridge not detected";
+      default:
+        return "Waiting for rosbridge";
     }
-    void selectRobot(id);
-  };
-
-  // Keep a valid robot selected: pick the first discovered robot on startup,
-  // and recover if the currently-selected robot leaves the network.
-  useEffect(() => {
-    if (robots.length === 0 || isSwitchingRobot) return;
-    if (selectedRobotId === null || !robots.includes(selectedRobotId)) {
-      void selectRobot(robots[0]);
-    }
-  }, [robots, selectedRobotId, selectRobot, isSwitchingRobot]);
-
-  useEffect(() => {
-    let mainSplit: Split.Instance;
-    let leftSplit: Split.Instance;
-    let rightSplit: Split.Instance;
-
-    if (activeTab === "dashboard" && mainSplitRef.current && leftSplitRef.current) {
-      // Initialize main horizontal split
-      mainSplit = Split([".left-panel", ".right-panel"], {
-        sizes: [66, 34],
-        minSize: [500, 300],
-        gutterSize: 4,
-        snapOffset: 0,
-        dragInterval: 1,
-        cursor: "col-resize",
-        gutter: (index, direction) => {
-          const gutter = document.createElement("div");
-          gutter.className = `gutter gutter-${direction} bg-[#232323] hover:bg-[#00a5ff] transition-colors duration-150`;
-          return gutter;
-        },
-      });
-
-      // Initialize left vertical split
-      leftSplit = Split([".left-top", ".left-bottom"], {
-        sizes: [67, 33],
-        minSize: [200, 200],
-        direction: "vertical",
-        gutterSize: 4,
-        snapOffset: 0,
-        cursor: "row-resize",
-        gutter: (index, direction) => {
-          const gutter = document.createElement("div");
-          gutter.className = `gutter gutter-${direction} bg-[#232323] hover:bg-[#00a5ff] transition-colors duration-150`;
-          return gutter;
-        },
-      });
-
-      // Initialize right vertical split (Controls top, AlertHistory bottom)
-      rightSplit = Split([".right-top", ".right-bottom"], {
-        sizes: [60, 40],
-        minSize: [200, 150],
-        direction: "vertical",
-        gutterSize: 4,
-        snapOffset: 0,
-        cursor: "row-resize",
-        gutter: (index, direction) => {
-          const gutter = document.createElement("div");
-          gutter.className = `gutter gutter-${direction} bg-[#232323] hover:bg-[#00a5ff] transition-colors duration-150`;
-          return gutter;
-        },
-      });
-    }
-
-    return () => {
-      mainSplit?.destroy();
-      leftSplit?.destroy();
-      rightSplit?.destroy();
-    };
-  }, [activeTab, hasRobot]);
+  })();
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#1a1a1a]">
-      {/* Top Toolbar */}
-      <div className="w-full h-12 bg-[#232323] flex items-center px-2 gap-1 border-b border-[#333333]">
-        <div className="flex items-center gap-1">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-3 text-gray-400 hover:text-white hover:bg-[#2a2a2a]"
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Fleet Overview
-            </Button>
-          </Link>
-          <span className="text-gray-600 mx-2">|</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-8 px-3 text-gray-400 hover:text-white hover:bg-[#2a2a2a] ${
-              activeTab === "dashboard" ? "bg-[#2a2a2a] text-white" : ""
-            }`}
-            onClick={() => setActiveTab("dashboard")}
-          >
-            <Grid className="w-4 h-4 mr-2" />
-            Dashboard
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`h-8 px-3 text-gray-400 hover:text-white hover:bg-[#2a2a2a] ${
-              activeTab === "sensor-data" ? "bg-[#2a2a2a] text-white" : ""
-            }`}
-            onClick={() => setActiveTab("sensor-data")}
-          >
-            <Activity className="w-4 h-4 mr-2" />
-            Sensor Data
-          </Button>
-
-          <Link href="/sensor-data" target="_blank" passHref>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-3 text-gray-400 hover:text-white hover:bg-[#2a2a2a]"
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Open Sensors in New Tab
-            </Button>
-          </Link>
-
-          <span className="text-gray-600 mx-2">|</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-gray-400 hover:text-white hover:bg-[#2a2a2a]"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-gray-400 hover:text-white hover:bg-[#2a2a2a]"
-          >
-            <Minus className="w-4 h-4" />
-          </Button>
+    <div className="min-h-screen bg-[#171717] text-white">
+      <header className="flex h-14 items-center gap-3 border-b border-[#333333] bg-[#232323] px-4">
+        <CarFront className="h-5 w-5 text-[#00a5ff]" />
+        <div>
+          <h1 className="text-sm font-semibold">CARL Vehicle Dashboard</h1>
+          <p className="text-xs text-gray-500">Single-vehicle ROS 2 interface</p>
         </div>
-        <div className="flex-1" />
-        <RobotSelector
-          robots={robots}
-          selectedRobotId={selectedRobotId}
-          onSelect={handleRobotSelect}
-          isConnected={isConnected}
+        <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
+          <StatusDot active={isConnected} />
+          {isConnected ? "Rosbridge connected" : "Rosbridge disconnected"}
+        </div>
+      </header>
+
+      <main className="mx-auto grid max-w-6xl gap-4 p-4 md:grid-cols-2">
+        <section className="md:col-span-2 rounded-lg border border-[#333333] bg-[#1e1e1e] p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#252525]">
+              {isCarlAvailable ? (
+                <Activity className="h-5 w-5 text-green-400" />
+              ) : (
+                <Cable className="h-5 w-5 text-gray-500" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold">{carlStatusLabel}</h2>
+              <p className="text-xs text-gray-500">
+                {isCarlAvailable
+                  ? "The CARL telemetry endpoints are present on the ROS graph."
+                  : "Start the CARL bridge and rosbridge server on the same ROS domain."}
+              </p>
+            </div>
+            {!isConnected && (
+              <button
+                type="button"
+                disabled={isConnecting}
+                onClick={() => void connect()}
+                className="ml-auto inline-flex h-8 items-center gap-2 rounded-md bg-[#00a5ff] px-3 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${isConnecting ? "animate-spin" : ""}`}
+                />
+                {isConnecting ? "Connecting" : "Reconnect"}
+              </button>
+            )}
+          </div>
+        </section>
+
+        <EncoderTelemetryPanel />
+        <TopicList
+          title="Vehicle command interfaces"
+          topics={COMMAND_TOPICS}
+          muted
         />
-        <span className="text-gray-600 mx-2">|</span>
-        <span className="text-gray-400 text-sm">TurtleBot3 Control System</span>
-      </div>
 
-      {/* Main Content */}
-      {!hasRobot ? (
-        <div className="h-[calc(100vh-3.1rem)] flex items-center justify-center bg-[#1a1a1a] text-gray-400">
-          {isConnected ? "Waiting for robots…" : "Connecting to ROS…"}
-        </div>
-      ) : activeTab === "dashboard" ? (
-        <div className="h-[calc(100vh-4.1rem)] p-1 flex" ref={mainSplitRef}>
-          {/* Left Panel */}
-          <div className="left-panel flex flex-col h-full" ref={leftSplitRef}>
-            <div className="left-top">
-              <Suspense
-                fallback={
-                  <div className="h-full bg-[#1e1e1e] rounded-sm flex items-center justify-center">
-                    <span className="text-gray-400">Loading...</span>
-                  </div>
-                }
-              >
-                <VideoGrid key={selectedRobotId} robotId={selectedRobotId} />
-              </Suspense>
-            </div>
-
-            <div className="left-bottom">
-              <Suspense
-                fallback={
-                  <div className="h-full bg-[#1a1a1a] rounded-sm flex items-center justify-center">
-                    <span className="text-gray-400">Loading...</span>
-                  </div>
-                }
-              >
-                <TelemetryPanel key={selectedRobotId} robotId={selectedRobotId} />
-              </Suspense>
-            </div>
-          </div>
-
-          {/* Right Panel - Controls (top) + Alert History (bottom) */}
-          <div className="right-panel h-full flex flex-col" ref={rightSplitRef}>
-            <div className="right-top">
-              <Suspense
-                fallback={
-                  <div className="h-full bg-[#1e1e1e] rounded-sm flex items-center justify-center">
-                    <span className="text-gray-400">Loading Controls...</span>
-                  </div>
-                }
-              >
-                <Controls key={`robot-${selectedRobotId}`} robotId={selectedRobotId} />
-              </Suspense>
-            </div>
-            <div className="right-bottom">
-              <AlertHistory />
-            </div>
-          </div>
-        </div>
-      ) : (
-        <Suspense
-          fallback={
-            <div className="h-[calc(100vh-3.1rem)] bg-[#1e1e1e] flex items-center justify-center">
-              <span className="text-gray-400">Loading Sensor Data...</span>
-            </div>
-          }
-        >
-          <SensorData key={selectedRobotId} robotId={selectedRobotId} />
-        </Suspense>
-      )}
+        <section className="md:col-span-2 rounded-lg border border-[#333333] bg-[#1e1e1e] p-4 text-xs text-gray-400">
+          Command publishing is disabled while the CARL dashboard integration is
+          being validated. Encoder values above are read directly from the
+          absolute /carl/encoders topic.
+        </section>
+      </main>
     </div>
   );
 }

@@ -77,6 +77,7 @@ services:
       - NODE_ENV=development
       # Tell Next.js to accept connections from outside the container
       - HOSTNAME=0.0.0.0
+      - NEXT_PUBLIC_ROSBRIDGE_URL=${NEXT_PUBLIC_ROSBRIDGE_URL:-}
     depends_on:
       ros-stack:
         condition: service_healthy

@@ -1,138 +1,83 @@
 /**
- * Central catalog of ROS topics used by the dashboard.
+ * Absolute ROS 2 topic catalog for the single CARL vehicle.
  *
- * Each entry has:
- *   path:        topic path WITHOUT a robot prefix
- *   type:        ROS message type string (matches what rosbridge expects)
- *   perRobot:    true  → caller should pass a robotId, hook will prefix /tb3_<id>
- *                false → caller should NOT pass a robotId (e.g. /tf, /selected/*)
- *
- * Adding a new topic? Put it here, don't sprinkle strings across components.
+ * Topic paths include the /carl namespace. Callers must pass these paths to
+ * useROS unchanged; the frontend never constructs a robot namespace.
  */
-export interface TopicEntry {
+import type {
+  CarlEncoderFeedbackMessage,
+  CarlEstopMessage,
+  CarlHeartbeatMessage,
+  CarlThrottleCommandMessage,
+  CarlThrottleStatusMessage,
+} from "@/types/carl";
+
+export interface TopicEntry<TMessage = unknown> {
   path: string;
   type: string;
-  perRobot: boolean;
+  /** Type-only association; this property is not present at runtime. */
+  readonly __message?: TMessage;
 }
 
-export const TOPICS = {
-  // ── Per-robot topics (need robotId passed to subscribe/publish) ──
-  odom: { path: "/odom", type: "nav_msgs/Odometry", perRobot: true },
-  imu: { path: "/imu", type: "sensor_msgs/Imu", perRobot: true },
-  scan: { path: "/scan", type: "sensor_msgs/LaserScan", perRobot: true },
-  scanPoints: {
-    path: "/scan/points",
-    type: "sensor_msgs/PointCloud2",
-    perRobot: true,
-  },
-  cmdVel: { path: "/cmd_vel", type: "geometry_msgs/Twist", perRobot: true },
-  cameraImage: {
-    path: "/camera/image_raw/compressed",
-    type: "sensor_msgs/CompressedImage",
-    perRobot: true,
-  },
-  cameraDepth: {
-    path: "/camera/depth/image_rect_raw/compressed",
-    type: "sensor_msgs/CompressedImage",
-    perRobot: true,
-  },
-  batteryState: {
-    path: "/battery_state",
-    type: "sensor_msgs/BatteryState",
-    perRobot: true,
-  },
-  jointStates: {
-    path: "/joint_states",
-    type: "sensor_msgs/JointState",
-    perRobot: true,
-  },
+export interface CarlTopicMessageMap {
+  encoders: CarlEncoderFeedbackMessage;
+  throttleStatus: CarlThrottleStatusMessage;
+  heartbeat: CarlHeartbeatMessage;
+  throttleCommand: CarlThrottleCommandMessage;
+  estop: CarlEstopMessage;
+}
 
-  // ── Shared / global topics (no prefix) ──
-  tf: { path: "/tf", type: "tf2_msgs/TFMessage", perRobot: false },
-  tfStatic: { path: "/tf_static", type: "tf2_msgs/TFMessage", perRobot: false },
+type CarlTopicCatalog = {
+  [Key in keyof CarlTopicMessageMap]: TopicEntry<CarlTopicMessageMap[Key]>;
+};
 
-  // ── Mux outputs (no prefix — switched via service call) ──
-  selectedScanPoints: {
-    path: "/selected/scan_points",
-    type: "sensor_msgs/PointCloud2",
-    perRobot: false,
+export const CARL_TOPICS = {
+  encoders: {
+    path: "/carl/encoders",
+    type: "carl_msgs/msg/CarlEncoderFeedback",
   },
-  selectedCameraImage: {
-    path: "/selected/camera_image",
-    type: "sensor_msgs/CompressedImage",
-    perRobot: false,
+  throttleStatus: {
+    path: "/carl/throttle_status",
+    type: "carl_msgs/msg/CarlThrottleStatus",
   },
-  selectedCameraDepth: {
-    path: "/selected/camera_depth",
-    type: "sensor_msgs/CompressedImage",
-    perRobot: false,
+  heartbeat: {
+    path: "/carl/heartbeat",
+    type: "carl_msgs/msg/CarlHeartbeat",
   },
+  throttleCommand: {
+    path: "/carl/throttle_cmd",
+    type: "carl_msgs/msg/CarlThrottleCmd",
+  },
+  estop: {
+    path: "/carl/estop",
+    type: "carl_msgs/msg/CarlEstop",
+  },
+} as const satisfies CarlTopicCatalog;
 
-  // ── Alert topics (fleet-wide, published by alert_monitor_node.py) ──
-  robotAlerts: {
-    path: "/robot_alerts",
-    type: "std_msgs/String",
-    perRobot: false,
-  },
+export type CarlTopicKey = keyof typeof CARL_TOPICS;
+export type CarlTopicMessage<Key extends CarlTopicKey> =
+  CarlTopicMessageMap[Key];
+
+/**
+ * Simulator-only shared topics retained temporarily by dormant legacy
+ * components. They are not part of CARL's ROS interface and are not used by
+ * the active CARL dashboard.
+ */
+export const LEGACY_TOPICS = {
+  tf: { path: "/tf", type: "tf2_msgs/TFMessage" },
+  tfStatic: { path: "/tf_static", type: "tf2_msgs/TFMessage" },
+  robotAlerts: { path: "/robot_alerts", type: "std_msgs/String" },
   robotAlertsHistory: {
     path: "/robot_alerts_history",
     type: "std_msgs/String",
-    perRobot: false,
   },
   robotAlertsRequestHistory: {
     path: "/robot_alerts_request_history",
     type: "std_msgs/String",
-    perRobot: false,
   },
-
-  // ── Safety auto-stop (toggle command + status echo) ──
-  safetyAutoStop: {
-    path: "/safety_auto_stop",
-    type: "std_msgs/Bool",
-    perRobot: false,
-  },
+  safetyAutoStop: { path: "/safety_auto_stop", type: "std_msgs/Bool" },
   safetyAutoStopStatus: {
     path: "/safety_auto_stop_status",
     type: "std_msgs/Bool",
-    perRobot: false,
   },
 } as const satisfies Record<string, TopicEntry>;
-
-export type TopicKey = keyof typeof TOPICS;
-
-/**
- * Deterministic per-robot color using the golden-angle hue distribution.
- * Produces well-separated, repeatable colors for any robot id.
- */
-export function colorForRobot(id: number): string {
-  const hue = (id * 137.508) % 360;
-  return `hsl(${hue}, 70%, 55%)`;
-}
-
-/**
- * Same color as an HTMLish hex string, for places that need a number
- * (e.g. THREE.Color expects 0xRRGGBB or '#rrggbb', not hsl()).
- */
-export function colorForRobotHex(id: number): string {
-  // Convert HSL → RGB → hex
-  const h = ((id * 137.508) % 360) / 360;
-  const s = 0.7;
-  const l = 0.55;
-
-  const hue2rgb = (p: number, q: number, t: number) => {
-    if (t < 0) t += 1;
-    if (t > 1) t -= 1;
-    if (t < 1 / 6) return p + (q - p) * 6 * t;
-    if (t < 1 / 2) return q;
-    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-    return p;
-  };
-
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  const r = Math.round(hue2rgb(p, q, h + 1 / 3) * 255);
-  const g = Math.round(hue2rgb(p, q, h) * 255);
-  const b = Math.round(hue2rgb(p, q, h - 1 / 3) * 255);
-
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-}

@@ -5,6 +5,7 @@ import type {
   ROSMessageData,
   ROSMessageBase,
 } from "@/types/ros";
+import { getRosbridgeUrl } from "@/lib/rosConfig";
 
 function isBase64(s: string): boolean {
   return s.length > 0 && s.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(s);
@@ -24,7 +25,7 @@ class ROSBridge extends EventEmitter {
   private readonly RECONNECT_BASE_MS = 1000;
   private readonly RECONNECT_MAX_MS = 30000;
 
-  async connect(url: string = "ws://localhost:9090"): Promise<void> {
+  async connect(url: string = getRosbridgeUrl()): Promise<void> {
     if (this.connected) return;
     if (this.connectPromise) return this.connectPromise;
 

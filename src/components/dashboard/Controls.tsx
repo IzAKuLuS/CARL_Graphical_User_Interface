@@ -83,7 +83,6 @@ export default function Controls({robotId}: ControlsProps) {
   
   // ROS connection
   const { isConnected, publish, subscribe } = useROS({
-    url: 'ws://localhost:9090',
     autoConnect: true
   });
 
@@ -107,7 +106,7 @@ export default function Controls({robotId}: ControlsProps) {
     if (!isConnected) return;
     
     setCurrentTwist(twist);
-    publish('/cmd_vel', 'geometry_msgs/Twist', twist, robotId);
+    publish('/cmd_vel', 'geometry_msgs/Twist', twist);
   };
   
   // Stop movement
@@ -199,7 +198,7 @@ export default function Controls({robotId}: ControlsProps) {
         const percentage = Math.min(100, Math.max(0, ((message.voltage - 9) / (12.6 - 9)) * 100));
         setBatteryLevel(percentage);
       }
-    }, robotId);
+    });
     
     return () => {
       batteryUnsubscribe();

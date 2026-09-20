@@ -245,7 +245,7 @@ const PointCloudViewer: React.FC<PointCloudViewerProps> = (props) => {
       geometry.computeBoundingSphere();
     };
 
-    const unsubscribe = subscribe(topic, 'sensor_msgs/PointCloud2', handlePointCloud, robotId);
+    const unsubscribe = subscribe(topic, 'sensor_msgs/PointCloud2', handlePointCloud);
     return () => unsubscribe();
   }, [delayComplete, isLoading, topic, subscribe, robotId]);
 

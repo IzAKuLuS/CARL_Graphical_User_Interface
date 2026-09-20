@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useROS } from '@/hooks/useROS';
-import { TOPICS } from '@/lib/rosTopics';
+import { LEGACY_TOPICS } from '@/lib/rosTopics';
 import type { AlertMessage, AlertSeverity, AlertType } from '@/types/ros';
 
 const MAX_ALERTS = 50;
@@ -104,7 +104,7 @@ export default function AlertHistory() {
   const disconnectTimeRef = useRef<number | null>(null);
   const flashTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const { subscribe, publish, isConnected } = useROS({ url: 'ws://localhost:9090' });
+  const { subscribe, publish, isConnected } = useROS();
   const prevConnectedRef = useRef(isConnected);
 
   const robotIds = useMemo(
@@ -143,7 +143,7 @@ export default function AlertHistory() {
   // Request history immediately on reconnect — don't wait for the 5s broadcast timer
   useEffect(() => {
     if (isConnected && !prevConnectedRef.current) {
-      publish(TOPICS.robotAlertsRequestHistory.path, TOPICS.robotAlertsRequestHistory.type, { data: '' });
+      publish(LEGACY_TOPICS.robotAlertsRequestHistory.path, LEGACY_TOPICS.robotAlertsRequestHistory.type, { data: '' });
     }
     prevConnectedRef.current = isConnected;
   }, [isConnected, publish]);
@@ -162,7 +162,7 @@ export default function AlertHistory() {
 
   function toggleAutoStop() {
     const next = !autoStopEnabled;
-    publish(TOPICS.safetyAutoStop.path, TOPICS.safetyAutoStop.type, { data: next });
+    publish(LEGACY_TOPICS.safetyAutoStop.path, LEGACY_TOPICS.safetyAutoStop.type, { data: next });
   }
 
   function acknowledge(id: string) {
@@ -191,8 +191,8 @@ export default function AlertHistory() {
 
   useEffect(() => {
     const unsubAlert = subscribe<StringMessage>(
-      TOPICS.robotAlerts.path,
-      TOPICS.robotAlerts.type,
+      LEGACY_TOPICS.robotAlerts.path,
+      LEGACY_TOPICS.robotAlerts.type,
       (msg) => {
         try {
           const alert: AlertMessage = JSON.parse(msg.data);
@@ -209,8 +209,8 @@ export default function AlertHistory() {
     );
 
     const unsubHistory = subscribe<StringMessage>(
-      TOPICS.robotAlertsHistory.path,
-      TOPICS.robotAlertsHistory.type,
+      LEGACY_TOPICS.robotAlertsHistory.path,
+      LEGACY_TOPICS.robotAlertsHistory.type,
       (msg) => {
         try {
           const history: AlertMessage[] = JSON.parse(msg.data);
@@ -228,8 +228,8 @@ export default function AlertHistory() {
     );
 
     const unsubAutoStop = subscribe<{ data: boolean }>(
-      TOPICS.safetyAutoStopStatus.path,
-      TOPICS.safetyAutoStopStatus.type,
+      LEGACY_TOPICS.safetyAutoStopStatus.path,
+      LEGACY_TOPICS.safetyAutoStopStatus.type,
       (msg) => setAutoStopEnabled(msg.data),
     );
 

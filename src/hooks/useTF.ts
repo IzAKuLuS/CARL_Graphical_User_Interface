@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import * as THREE from "three";
 import { useROS } from "./useROS";
-import { TOPICS } from "@/lib/rosTopics";
+import { LEGACY_TOPICS } from "@/lib/rosTopics";
 
 interface TransformStamped {
   header: {
@@ -84,13 +84,13 @@ export function useTF() {
 
     // Note: no robotId argument — /tf is a shared topic.
     const unsubTf = subscribe<TFMessage>(
-      TOPICS.tf.path,
-      TOPICS.tf.type,
+      LEGACY_TOPICS.tf.path,
+      LEGACY_TOPICS.tf.type,
       handleTF,
     );
     const unsubTfStatic = subscribe<TFMessage>(
-      TOPICS.tfStatic.path,
-      TOPICS.tfStatic.type,
+      LEGACY_TOPICS.tfStatic.path,
+      LEGACY_TOPICS.tfStatic.type,
       handleTF,
     );
 

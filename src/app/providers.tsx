@@ -1,8 +1,5 @@
-'use client';
+import type { ReactNode } from "react";
 
-import React from 'react';
-import { RobotSelectionProvider } from '@/hooks/useRobotSelection';
-
-export default function AppProviders({ children }: { children: React.ReactNode }) {
-  return <RobotSelectionProvider>{children}</RobotSelectionProvider>;
+export default function AppProviders({ children }: { children: ReactNode }) {
+  return children;
 }

@@ -56,9 +56,7 @@ const DepthData: React.FC<DepthDataProps> = ({ robotId }) => {
   const prevDepthRef = useRef<number>(0);
   const lastUpdateTimeRef = useRef<number>(Date.now());
 
-  const { subscribe } = useROS({
-    url: 'ws://localhost:9090'
-  });
+  const { subscribe } = useROS();
 
   useEffect(() => {
     const processLaserScan = (message: LaserScan) => {
@@ -121,7 +119,7 @@ const DepthData: React.FC<DepthDataProps> = ({ robotId }) => {
       lastUpdateTimeRef.current = now;
     };
 
-    const unsubscribe = subscribe('/scan', 'sensor_msgs/LaserScan', handleScan, robotId);
+    const unsubscribe = subscribe('/scan', 'sensor_msgs/LaserScan', handleScan);
     return () => unsubscribe();
   }, [subscribe, robotId]);
 

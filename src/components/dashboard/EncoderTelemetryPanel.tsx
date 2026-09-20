@@ -1,0 +1,93 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Gauge } from "lucide-react";
+import { useROS } from "@/hooks/useROS";
+import { CARL_TOPICS, type CarlTopicMessage } from "@/lib/rosTopics";
+
+type EncoderMessage = CarlTopicMessage<"encoders">;
+
+interface EncoderCounts {
+  rearLeft: number;
+  rearRight: number;
+}
+
+const countFormatter = new Intl.NumberFormat("en-US");
+
+function EncoderValue({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="rounded-md border border-[#2f2f2f] bg-[#242424] p-4">
+      <span className="block text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </span>
+      <div className="mt-2 flex items-baseline gap-2">
+        <span className="font-mono text-3xl font-semibold tabular-nums text-white">
+          {value === null ? "—" : countFormatter.format(value)}
+        </span>
+        <span className="text-xs text-gray-500">counts</span>
+      </div>
+    </div>
+  );
+}
+
+export default function EncoderTelemetryPanel() {
+  const { isConnected, subscribe } = useROS();
+  const [counts, setCounts] = useState<EncoderCounts | null>(null);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setCounts(null);
+      return;
+    }
+
+    const unsubscribe = subscribe<EncoderMessage>(
+      CARL_TOPICS.encoders.path,
+      CARL_TOPICS.encoders.type,
+      (message) => {
+        setCounts({
+          rearLeft: message.rear_left_counts,
+          rearRight: message.rear_right_counts,
+        });
+      },
+    );
+
+    return unsubscribe;
+  }, [isConnected, subscribe]);
+
+  const statusLabel = !isConnected
+    ? "Rosbridge disconnected"
+    : counts === null
+      ? "Waiting for encoder data"
+      : "Live";
+
+  return (
+    <section className="rounded-lg border border-[#333333] bg-[#1e1e1e] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Gauge className="h-4 w-4 text-[#00a5ff]" />
+          <h2 className="text-sm font-semibold text-[#00a5ff]">
+            Rear wheel encoders
+          </h2>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-500">
+          <span
+            aria-hidden="true"
+            className={`h-2 w-2 rounded-full ${
+              counts !== null ? "bg-green-500" : "bg-gray-600"
+            }`}
+          />
+          {statusLabel}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <EncoderValue label="Rear left" value={counts?.rearLeft ?? null} />
+        <EncoderValue label="Rear right" value={counts?.rearRight ?? null} />
+      </div>
+
+      <code className="mt-3 block text-[11px] text-gray-600">
+        {CARL_TOPICS.encoders.path}
+      </code>
+    </section>
+  );
+}

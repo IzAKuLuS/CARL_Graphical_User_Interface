@@ -6,8 +6,8 @@ import AppProviders from "./providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ROS Dashboard",
-  description: "Robot Operating System Dashboard",
+  title: "CARL Vehicle Dashboard",
+  description: "Web dashboard for CARL ROS 2 telemetry",
 };
 
 export default function RootLayout({

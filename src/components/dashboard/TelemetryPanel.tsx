@@ -231,7 +231,6 @@ const TelemetryPanel: React.FC<TelemetryPanelProps> = ({robotId}) => {
   const isSubscribedRef = useRef(false);
 
   const { isConnected, subscribe } = useROS({
-    url: 'ws://localhost:9090',
     autoConnect: true
   });
 
@@ -318,7 +317,7 @@ const TelemetryPanel: React.FC<TelemetryPanelProps> = ({robotId}) => {
         }
       };
 
-      const unsubscribe = subscribe(topic, messageType, handleMessage, robotId);
+      const unsubscribe = subscribe(topic, messageType, handleMessage);
       subscriptionsRef.current.push(unsubscribe);
     }
 

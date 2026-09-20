@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import rosbridge from "@/lib/rosbridge";
+import { getRosbridgeUrl } from "@/lib/rosConfig";
 import type { ROSCallback } from "@/types/ros";
 
 interface UseROSOptions {
@@ -9,19 +10,16 @@ interface UseROSOptions {
   onDisconnected?: () => void;
 }
 
-/**
- * Prefix a topic with the robot namespace if a robotId is provided.
- * Returns the topic unchanged when robotId is undefined — this matters
- * for shared topics like /tf and mux outputs (/selected/*).
- */
-function resolveTopic(topic: string, robotId?: number): string {
-  if (robotId === undefined) return topic;
-  return `/tb3_${robotId}${topic}`;
+function requireAbsoluteTopic(topic: string): string {
+  if (!topic.startsWith("/")) {
+    throw new Error(`ROS topic must be absolute: ${topic}`);
+  }
+  return topic;
 }
 
 export function useROS(options: UseROSOptions = {}) {
   const {
-    url = "ws://localhost:9090",
+    url = getRosbridgeUrl(),
     autoConnect = true,
     onConnected,
     onDisconnected,
@@ -72,11 +70,9 @@ export function useROS(options: UseROSOptions = {}) {
   /**
    * Subscribe to a topic.
    *
-   * @param topic      Topic path (e.g. '/odom', '/tf', '/selected/scan_points').
+   * @param topic      Absolute topic path (for example '/carl/encoders').
    * @param messageType ROS message type string.
    * @param callback   Called with each incoming message.
-   * @param robotId    Optional — when provided, topic is prefixed /tb3_<robotId>.
-   *                   Omit for shared topics like /tf and /selected/*.
    * @returns Unsubscribe function.
    */
   const subscribe = useCallback(
@@ -84,10 +80,12 @@ export function useROS(options: UseROSOptions = {}) {
       topic: string,
       messageType: string,
       callback: ROSCallback<T>,
-      robotId?: number,
     ): (() => void) => {
-      const fullTopic = resolveTopic(topic, robotId);
-      return rosbridge.subscribe<T>(fullTopic, messageType, callback);
+      return rosbridge.subscribe<T>(
+        requireAbsoluteTopic(topic),
+        messageType,
+        callback,
+      );
     },
     [],
   );
@@ -95,10 +93,9 @@ export function useROS(options: UseROSOptions = {}) {
   /**
    * Publish a message to a topic.
    *
-   * @param topic       Topic path.
+   * @param topic       Absolute topic path.
    * @param messageType ROS message type string.
    * @param message     The message object.
-   * @param robotId     Optional — when provided, topic is prefixed /tb3_<robotId>.
    * @returns true if sent, false if not connected.
    */
   const publish = useCallback(
@@ -106,10 +103,12 @@ export function useROS(options: UseROSOptions = {}) {
       topic: string,
       messageType: string,
       message: T,
-      robotId?: number,
     ): boolean => {
-      const fullTopic = resolveTopic(topic, robotId);
-      return rosbridge.publish<T>(fullTopic, messageType, message);
+      return rosbridge.publish<T>(
+        requireAbsoluteTopic(topic),
+        messageType,
+        message,
+      );
     },
     [],
   );

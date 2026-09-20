@@ -229,7 +229,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ robotId }) => {
             processingFrame.current = false;
             setError(err instanceof Error ? err.message : 'Error loading image');
           }
-        }, robotId)
+        })
       );
     }
 
@@ -270,7 +270,7 @@ const VideoFeed: React.FC<VideoFeedProps> = ({ robotId }) => {
         };
         
         lastTelemetryUpdate.current = now;
-      }, robotId)
+      })
     );
 
     // Use Z position from odom as altitude for ground robots

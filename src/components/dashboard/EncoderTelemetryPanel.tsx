@@ -16,15 +16,15 @@ const countFormatter = new Intl.NumberFormat("en-US");
 
 function EncoderValue({ label, value }: { label: string; value: number | null }) {
   return (
-    <div className="rounded-md border border-[#2f2f2f] bg-[#242424] p-4">
+    <div className="rounded-lg border border-[#333333] bg-[#292929] p-6">
       <span className="block text-xs font-medium uppercase tracking-wide text-gray-500">
         {label}
       </span>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="font-mono text-3xl font-semibold tabular-nums text-white">
+      <div className="mt-3 flex items-baseline gap-2.5">
+        <span className="font-mono text-4xl font-semibold tabular-nums text-white">
           {value === null ? "—" : countFormatter.format(value)}
         </span>
-        <span className="text-xs text-gray-500">counts</span>
+        <span className="text-sm text-gray-500">counts</span>
       </div>
     </div>
   );
@@ -61,15 +61,15 @@ export default function EncoderTelemetryPanel() {
       : "Live";
 
   return (
-    <section className="rounded-lg border border-[#333333] bg-[#1e1e1e] p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Gauge className="h-4 w-4 text-[#00a5ff]" />
-          <h2 className="text-sm font-semibold text-[#00a5ff]">
+    <section className="rounded-xl border border-[#333333] bg-[#1e1e1e] p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Gauge className="h-5 w-5 text-[#00a5ff]" />
+          <h2 className="text-base font-semibold text-[#00a5ff]">
             Rear wheel encoders
           </h2>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
           <span
             aria-hidden="true"
             className={`h-2 w-2 rounded-full ${
@@ -80,12 +80,12 @@ export default function EncoderTelemetryPanel() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <EncoderValue label="Rear left" value={counts?.rearLeft ?? null} />
         <EncoderValue label="Rear right" value={counts?.rearRight ?? null} />
       </div>
 
-      <code className="mt-3 block text-[11px] text-gray-600">
+      <code className="mt-4 block text-xs text-gray-600">
         {CARL_TOPICS.encoders.path}
       </code>
     </section>

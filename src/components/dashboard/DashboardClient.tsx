@@ -1,6 +1,12 @@
 "use client";
 
-import { Activity, Cable, CarFront, RefreshCw } from "lucide-react";
+import {
+  Activity,
+  Cable,
+  CarFront,
+  CircleAlert,
+  RefreshCw,
+} from "lucide-react";
 import EncoderTelemetryPanel from "@/components/dashboard/EncoderTelemetryPanel";
 import VehicleInterfacesPanel from "@/components/dashboard/VehicleInterfacesPanel";
 import { useCarlPresence } from "@/hooks/useCarlPresence";
@@ -18,7 +24,7 @@ function StatusDot({ active }: { active: boolean }) {
 }
 
 export default function DashboardClient() {
-  const { isConnected, isConnecting, connect } = useROS();
+  const { isConnected, isConnecting, connectionError, connect } = useROS();
   const carlState = useCarlPresence();
   const isCarlAvailable = carlState === "carl-available";
 
@@ -77,10 +83,20 @@ export default function DashboardClient() {
                 <RefreshCw
                   className={`h-4 w-4 ${isConnecting ? "animate-spin" : ""}`}
                 />
-                {isConnecting ? "Connecting" : "Reconnect"}
+                {isConnecting ? "Connecting" : "Retry connection"}
               </button>
             )}
           </div>
+          {connectionError && !isConnected && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="mt-4 flex items-start gap-3 rounded-lg border border-red-900/70 bg-red-950/40 p-3 text-sm text-red-200"
+            >
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+              <p>{connectionError}</p>
+            </div>
+          )}
         </section>
 
         <EncoderTelemetryPanel />

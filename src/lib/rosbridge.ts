@@ -53,8 +53,11 @@ class ROSBridge extends EventEmitter {
           this.scheduleReconnect();
         };
 
-        this.ws.onerror = (error) => {
-          console.warn("ROSBridge WebSocket unavailable:", error);
+        this.ws.onerror = () => {
+          const error = new Error(
+            `Unable to open the ROSBridge WebSocket at ${this.url}`,
+          );
+          console.warn(error.message);
           if (!this.connected) {
             this.connectPromise = null;
             reject(error);

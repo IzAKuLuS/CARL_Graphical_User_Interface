@@ -17,6 +17,10 @@ function requireAbsoluteTopic(topic: string): string {
   return topic;
 }
 
+function connectionFailureMessage(url: string): string {
+  return `Could not connect to rosbridge at ${url}. Check that the server is running and the address is reachable.`;
+}
+
 export function useROS(options: UseROSOptions = {}) {
   const {
     url = getRosbridgeUrl(),
@@ -27,18 +31,29 @@ export function useROS(options: UseROSOptions = {}) {
 
   const [isConnected, setIsConnected] = useState(rosbridge.isConnected());
   const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+
+  const connect = useCallback(async (): Promise<boolean> => {
+    setConnectionError(null);
+    setIsConnecting(true);
+
+    try {
+      await rosbridge.connect(url);
+      return true;
+    } catch (error) {
+      console.warn("ROS connection unavailable:", error);
+      setIsConnecting(false);
+      setConnectionError(connectionFailureMessage(url));
+      return false;
+    }
+  }, [url]);
 
   useEffect(() => {
-    console.log("useROS hook init:", {
-      isConnected,
-      isConnecting,
-      autoConnect,
-    });
-
     const handleConnect = () => {
       console.log("ROS connection established");
       setIsConnected(true);
       setIsConnecting(false);
+      setConnectionError(null);
       onConnected?.();
     };
 
@@ -52,20 +67,16 @@ export function useROS(options: UseROSOptions = {}) {
     rosbridge.on("connected", handleConnect);
     rosbridge.on("disconnected", handleDisconnect);
 
-    if (autoConnect && !rosbridge.isConnected() && !isConnecting) {
-      setIsConnecting(true);
+    if (autoConnect && !rosbridge.isConnected()) {
       console.log("Attempting to connect to ROS...");
-      rosbridge.connect(url).catch((error) => {
-        console.warn("ROS connection unavailable:", error);
-        setIsConnecting(false);
-      });
+      void connect();
     }
 
     return () => {
       rosbridge.off("connected", handleConnect);
       rosbridge.off("disconnected", handleDisconnect);
     };
-  }, [url, autoConnect, onConnected, onDisconnected]);
+  }, [autoConnect, connect, onConnected, onDisconnected]);
 
   /**
    * Subscribe to a topic.
@@ -116,9 +127,10 @@ export function useROS(options: UseROSOptions = {}) {
   return {
     isConnected,
     isConnecting,
+    connectionError,
     subscribe,
     publish,
-    connect: useCallback(() => rosbridge.connect(url), [url]),
+    connect,
     disconnect: useCallback(() => rosbridge.disconnect(), []),
   };
 }

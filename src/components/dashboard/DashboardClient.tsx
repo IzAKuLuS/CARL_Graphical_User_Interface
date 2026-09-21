@@ -1,9 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import {
   Activity,
   Cable,
-  CarFront,
   CircleAlert,
   RefreshCw,
 } from "lucide-react";
@@ -44,7 +44,14 @@ export default function DashboardClient() {
   return (
     <div className="min-h-screen bg-[#171717] text-white">
       <header className="flex h-16 items-center gap-3.5 border-b border-[#333333] bg-[#232323] px-6">
-        <CarFront className="h-6 w-6 text-[#00a5ff]" />
+        <Image
+          src="/branding/AVL_Logo_Blue.png"
+          alt="AVL logo"
+          width={105}
+          height={36}
+          priority
+          className="h-9 w-auto object-contain"
+        />
         <div>
           <h1 className="text-base font-semibold">CARL Vehicle Dashboard</h1>
           <p className="text-sm text-gray-500">Single-vehicle ROS 2 interface</p>

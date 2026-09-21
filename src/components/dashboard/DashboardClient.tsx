@@ -43,7 +43,7 @@ export default function DashboardClient() {
 
   return (
     <div className="min-h-screen bg-[#171717] text-white">
-      <header className="flex h-16 items-center gap-3.5 border-b border-[#333333] bg-[#232323] px-6">
+      <header className="relative flex h-16 items-center gap-3.5 border-b border-[#333333] bg-[#232323] px-6">
         <Image
           src="/branding/AVL_Logo_Blue.png"
           alt="AVL logo"
@@ -56,6 +56,14 @@ export default function DashboardClient() {
           <h1 className="text-base font-semibold">CARL Vehicle Dashboard</h1>
           <p className="text-sm text-gray-500">Single-vehicle ROS 2 interface</p>
         </div>
+        <Image
+          src="/branding/CARL_higher_resolution-removebg-preview.png"
+          alt="CARL logo"
+          width={144}
+          height={60}
+          priority
+          className="pointer-events-none absolute left-1/2 h-12 w-auto -translate-x-1/2 object-contain"
+        />
         <div className="ml-auto flex items-center gap-2.5 text-sm text-gray-400">
           <StatusDot active={isConnected} />
           {isConnected ? "Rosbridge connected" : "Rosbridge disconnected"}

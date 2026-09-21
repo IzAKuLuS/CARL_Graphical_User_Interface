@@ -45,7 +45,7 @@ export default function DashboardClient() {
     <div className="min-h-screen bg-[#171717] text-white">
       <header className="relative flex h-20 items-center gap-3.5 border-b border-[#333333] bg-[#232323] px-6">
         <Image
-          src="/branding/AVL_Logo_Blue.png"
+          src="/branding/avl_logo_white-removebg-preview.png"
           alt="AVL logo"
           width={105}
           height={36}

@@ -62,7 +62,7 @@ export default function DashboardClient() {
           width={144}
           height={60}
           priority
-          className="pointer-events-none absolute left-1/2 h-12 w-auto -translate-x-1/2 object-contain"
+          className="pointer-events-none absolute left-1/2 h-20 w-auto -translate-x-1/2 object-contain"
         />
         <div className="ml-auto flex items-center gap-2.5 text-sm text-gray-400">
           <StatusDot active={isConnected} />

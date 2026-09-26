@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import EncoderTelemetryPanel from "@/components/dashboard/EncoderTelemetryPanel";
+import ImuTelemetryPanel from "@/components/dashboard/ImuTelemetryPanel";
 import VehicleInterfacesPanel from "@/components/dashboard/VehicleInterfacesPanel";
 import { useCarlPresence } from "@/hooks/useCarlPresence";
 import { useROS } from "@/hooks/useROS";
@@ -116,11 +117,13 @@ export default function DashboardClient() {
 
         <EncoderTelemetryPanel />
         <VehicleInterfacesPanel />
+        <ImuTelemetryPanel />
 
         <section className="rounded-xl border border-[#333333] bg-[#1e1e1e] p-5 text-sm text-gray-400 lg:col-span-2">
           Command publishing is disabled while the CARL dashboard integration is
-          being validated. Encoder values above are read directly from the
-          absolute /carl/encoders topic.
+          being validated. Encoder and IMU values above are read directly from
+          the absolute /carl/encoders, /carl/imu, and /carl/imu/temperature
+          topics.
         </section>
       </main>
     </div>

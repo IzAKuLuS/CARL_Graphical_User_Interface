@@ -8,6 +8,8 @@ import type {
   CarlEncoderFeedbackMessage,
   CarlEstopMessage,
   CarlHeartbeatMessage,
+  CarlImuMessage,
+  CarlTemperatureMessage,
   CarlThrottleCommandMessage,
   CarlThrottleStatusMessage,
 } from "@/types/carl";
@@ -25,6 +27,8 @@ export interface CarlTopicMessageMap {
   heartbeat: CarlHeartbeatMessage;
   throttleCommand: CarlThrottleCommandMessage;
   estop: CarlEstopMessage;
+  imu: CarlImuMessage;
+  imuTemperature: CarlTemperatureMessage;
 }
 
 type CarlTopicCatalog = {
@@ -39,6 +43,14 @@ export const CARL_TOPICS = {
   throttleStatus: {
     path: "/carl/throttle_status",
     type: "carl_msgs/msg/CarlThrottleStatus",
+  },
+  imu: {
+    path: "/carl/imu",
+    type: "sensor_msgs/msg/Imu",
+  },
+  imuTemperature: {
+    path: "/carl/imu/temperature",
+    type: "sensor_msgs/msg/Temperature",
   },
   heartbeat: {
     path: "/carl/heartbeat",

@@ -49,3 +49,36 @@ export interface CarlEstopMessage {
   header: Ros2Header;
   reason: CarlEstopReason;
 }
+
+/** ROS 2 geometry_msgs/msg/Vector3 as serialized by rosbridge. */
+export interface RosVector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/** ROS 2 geometry_msgs/msg/Quaternion as serialized by rosbridge. */
+export interface RosQuaternion {
+  x: number;
+  y: number;
+  z: number;
+  w: number;
+}
+
+/** ROS 2 sensor_msgs/msg/Imu published by carl_bridge on /carl/imu. */
+export interface CarlImuMessage {
+  header: Ros2Header;
+  orientation: RosQuaternion;
+  orientation_covariance: number[];
+  angular_velocity: RosVector3;
+  angular_velocity_covariance: number[];
+  linear_acceleration: RosVector3;
+  linear_acceleration_covariance: number[];
+}
+
+/** ROS 2 sensor_msgs/msg/Temperature published for the MPU-6500 die. */
+export interface CarlTemperatureMessage {
+  header: Ros2Header;
+  temperature: number;
+  variance: number;
+}

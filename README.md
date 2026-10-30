@@ -8,7 +8,7 @@ The Next.js and React frontend connects to a ROS 2 rosbridge server over WebSock
 
 ## Run Locally
 
-Install Node.js 22.9 or newer and npm. For live telemetry, run the CARL bridge and a rosbridge server on the same ROS domain, with rosbridge accessible on port `9090`.
+Install Node.js 22.9 or newer and npm. Docker is not required. For live telemetry, run the CARL bridge and a rosbridge server on the same ROS domain, with rosbridge accessible on port `9090`.
 
 ```bash
 git clone https://github.com/IzAKuLuS/CARL_Graphical_User_Interface.git
@@ -17,10 +17,13 @@ npm ci
 
 # Optional: set this if rosbridge runs on another computer.
 # export NEXT_PUBLIC_ROSBRIDGE_URL=ws://192.168.1.50:9090
-npm run dev
+npm run build
+npm start -- --hostname 127.0.0.1
 ```
 
-Open [http://localhost:3000](http://localhost:3000). By default, the dashboard connects to rosbridge at `ws://localhost:9090` when opened locally. Without the CARL backend, the GUI opens but live telemetry remains unavailable.
+Open [http://localhost:3000](http://localhost:3000) in the browser on CARL’s host computer and use fullscreen mode for the passenger display. Keep the server running while the display is in use. By default, the dashboard connects to rosbridge at `ws://localhost:9090` when opened locally. Without the CARL backend, the GUI opens but live telemetry remains unavailable.
+
+For development with hot reload, use `npm run dev` instead of the build/start commands. Set `NEXT_PUBLIC_ROSBRIDGE_URL` before building if a different backend address is needed.
 
 ## License
 

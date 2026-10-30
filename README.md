@@ -1,10 +1,7 @@
 # CARL Graphical User Interface
+> Authored by Isaac Alvarado
 
-A web dashboard for monitoring CARL vehicle telemetry. It displays encoder feedback, IMU measurements and temperature, connection status, and heartbeat information including vehicle mode, emergency-stop state, and teleoperation readiness. Command publishing is currently disabled while the CARL integration is being validated.
-
-## How It Works
-
-The Next.js and React frontend connects to a ROS 2 rosbridge server over WebSocket. It detects the CARL bridge through its ROS topics and subscribes to `/carl/encoders`, `/carl/imu`, `/carl/imu/temperature`, and `/carl/heartbeat` to update the dashboard in real time.
+A web dashboard for monitoring CARL vehicle telemetry. It displays encoder feedback, IMU measurements and temperature, connection status, and heartbeat information including vehicle mode, emergency-stop state, and teleoperation readiness to the passenger seated within CAR 1. This GUI is designed to be shown on a touchscreen display module aimed at the passenger so that key telemetry is communicated in an intuitive manner. Implemented with Next.js and a React frontend that connects to a ROS 2 rosbridge server over WebSocket. It detects the CARL bridge through its ROS topics and subscribes to `/carl/encoders`, `/carl/imu`, `/carl/imu/temperature`, and `/carl/heartbeat` to update the dashboard in real time.
 
 ## Run Locally
 
@@ -19,8 +16,6 @@ npm ci
 # export NEXT_PUBLIC_ROSBRIDGE_URL=ws://192.168.1.50:9090
 npm run dev
 ```
-
-Open [http://localhost:3000](http://localhost:3000). By default, the dashboard connects to rosbridge at `ws://localhost:9090` when opened locally. Without the CARL backend, the GUI opens but live telemetry remains unavailable.
 
 ## License
 

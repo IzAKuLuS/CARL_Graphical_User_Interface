@@ -31,7 +31,9 @@ Run the normal CARL bridge and joystick application, plus rosbridge, in the same
 
 During your joystick test, open Telemetry and watch left/right encoder counts, throttle state, applied outputs, heartbeat and mode. Values update without refreshing the page, at up to 10 display updates per second. Expired readings clear even if the socket remains connected. Connection errors and Retry connection are under System. Existing legacy page URLs still redirect to Drive.
 
-Date/time comes from the local browser computer's OS clock and timezone; live time is the default. Correct CARL's OS clock/timezone if needed. Speed remains unavailable until a velocity estimator exists. Ambient temperature and battery percentage remain unavailable until their sensor/BMS inputs exist. Independent controller status remains Unknown without confirmed health data. IMU inputs are not subscribed to or displayed.
+THR uses `/carl/throttle_status`; STR uses `/carl/steering_angle`. Green indicates recent healthy feedback, amber indicates expired feedback (or the bridge's steering timeout), and red indicates a reported fault or throttle safe/e-stop state. Missing or malformed feedback remains Unknown. Steering calibration is required to display an angle, but not for a healthy STR indicator. These lights describe the available feedback, not a full hardware self-test; heartbeat alone cannot establish either Teensy's status.
+
+Date/time comes from the local browser computer's OS clock and timezone; live time is the default. Correct CARL's OS clock/timezone if needed. Speed remains unavailable until a velocity estimator exists. Ambient temperature and battery percentage remain unavailable until their sensor/BMS inputs exist. IMU inputs are not subscribed to or displayed.
 
 The font and icons are bundled locally. No runtime internet connection or Docker is required. The responsive layout fills the native 1024 × 600 aspect ratio; use browser fullscreen mode on the passenger display.
 
@@ -73,7 +75,7 @@ Fixture builds use `.next-test`, separate from the normal `.next` deployment
 build. Keep fixture settings out of deployment. For interactive fixture testing,
 run `node tests/mock-rosbridge.cjs` and start the test build on localhost port
 3212; the fixture accepts `live`, `pause`, `malformed`, `estop`, `silent`,
-`steering`, `subscription-error`, and `disconnect` through its terminal.
+`steering`, `steering-uncalibrated`, `steering-fault`, `subscription-error`, and `disconnect` through its terminal.
 
 ## Runtime and maintenance
 

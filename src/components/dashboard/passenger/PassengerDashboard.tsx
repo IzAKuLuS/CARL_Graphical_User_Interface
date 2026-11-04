@@ -51,10 +51,9 @@ function PassengerDashboard({ data: rawData, connectionError, onReconnect, isCon
               onReconnect={onReconnect} isConnecting={isConnecting} unit={unit} setUnit={setUnit}
               hour24={hour24} setHour24={setHour24} referenceClock={referenceClock} setReferenceClock={setReferenceClock} />
           )}
-          <div className="view-footer">
-            <span className="footer-brand">CARL <i /> <span>PASSENGER DISPLAY</span></span>
-            <span className="preview-disclaimer">{data.sample ? 'Preview · sample data' : 'Vehicle telemetry'}</span>
-          </div>
+          {data.sample && <div className="view-footer">
+            <span className="preview-disclaimer">Preview · sample data</span>
+          </div>}
         </main>
         <nav className="floating-dock" aria-label="Main navigation">
           {NAV.map(({ page: next, icon: Icon }) => (

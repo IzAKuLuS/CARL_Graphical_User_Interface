@@ -59,7 +59,45 @@
   "unavailable_inputs": [
     "velocity estimator",
     "ambient sensor",
-    "BMS",
-    "independent controller health"
-  ]
+    "BMS"
+  ],
+  "controller_indicator_fix": {
+    "validation_date": "2026-11-04",
+    "local_regression_checks": 74,
+    "lint": "passed with zero warnings",
+    "typecheck": "passed",
+    "production_build": "passed",
+    "isolated_test_build": "passed",
+    "throttle_source": "/carl/throttle_status",
+    "steering_source": "/carl/steering_angle",
+    "health_policy": "Fresh healthy feedback is green; expired feedback or steering LINK_STALE is amber; reported faults and throttle safe/e-stop states are red; missing/malformed feedback and reconnect without new samples remain unknown.",
+    "calibration": "Uncalibrated valid steering can be online; angle display still requires calibration.",
+    "health_scope": "Feedback health only, not a full controller hardware self-test.",
+    "footer_labels_removed": [
+      "CARL PASSENGER DISPLAY",
+      "Vehicle telemetry"
+    ],
+    "physical_vehicle_test": "not performed; localhost fixture used",
+    "browser_checks": [
+      "live topics, 75% signed throttle, changing encoders and calibrated steering",
+      "THR/STR healthy, uncalibrated, fault, stale, malformed and recovered lights; no production footer labels",
+      "stale, malformed, e-stop and fresh-data recovery",
+      "reconnect without duplicate subscriptions and visible subscription failures",
+      "hidden-page telemetry suspension and fresh resume",
+      "units, clock preferences, navigation persistence and fullscreen failure",
+      "bounded traffic and single connection under 4x CPU throttling",
+      "silent half-open peer replaced and live telemetry recovered",
+      "legacy redirects, no page errors, no internet assets, no vehicle commands"
+    ],
+    "resource_soak": {
+      "cpuThrottle": 4,
+      "seconds": 10,
+      "messages": 400,
+      "taskSeconds": 0.14,
+      "heapMiB": 5.91,
+      "heapDeltaMiB": 0.05,
+      "domNodes": 1005
+    },
+    "deployment_bundle_contains_fixture_endpoint": false
+  }
 }

@@ -37,10 +37,7 @@
 .prototype-stage .speed-baseline { height: 2px; width: 7cqw; background: #b5b8bd; margin-top: 4.4cqh; }
 .prototype-stage .speed-caption { margin-top: 2.4cqh; font-size: 1.52cqw; letter-spacing: -.025em; font-weight: 400; color: #b3b6bd; }
 .prototype-stage .speed-caption > span { padding: 0 .18em; }
-.prototype-stage .view-footer { position: absolute; bottom: 2.6cqh; left: 2.35cqw; right: 2.35cqw; display: flex; justify-content: space-between; align-items: center; height: 3cqh; }
-.prototype-stage .footer-brand { display: flex; align-items: center; gap: 1.4cqw; font-size: 1.4cqw; font-weight: 500; letter-spacing: .25cqw; }
-.prototype-stage .footer-brand i { height: 1.3cqw; width: 1px; background: #787c83; }
-.prototype-stage .footer-brand > span { font-size: .98cqw; letter-spacing: .21cqw; font-weight: 400; color: #c3c6cb; }
+.prototype-stage .view-footer { position: absolute; bottom: 2.6cqh; right: 2.35cqw; display: flex; justify-content: flex-end; align-items: center; height: 3cqh; }
 .prototype-stage .preview-disclaimer { color: var(--muted); font-size: 1.07cqw; }
 .prototype-stage .floating-dock { position: absolute; bottom: 1.7cqh; left: .85cqw; right: .85cqw; height: 15.5cqh; border-radius: 1.35cqw; padding: 1.05cqh 2.1cqw; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1.8cqw; justify-items: center; align-items: stretch; background: linear-gradient(110deg, #101214, #0d0f11); }
 .prototype-stage .dock-button { width: 15.2cqw; padding: 1.7cqh .5cqw 1.2cqh; border-radius: 1.05cqw; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: .65cqh; color: #f6f6f8; transition: background-color 120ms, color 120ms; }
@@ -105,7 +102,7 @@
   .prototype-stage .dock-button > svg { width: 3.2cqw; height: 3.2cqw; }
   .prototype-stage .dock-button > span { font-size: 1.76cqw; }
   .prototype-stage .speed-caption { font-size: 1.76cqw; }
-  .prototype-stage .footer-brand > span, .prototype-stage .preview-disclaimer { font-size: 1.17cqw; }
+  .prototype-stage .preview-disclaimer { font-size: 1.17cqw; }
   .prototype-stage .eyebrow, .prototype-stage .sample-label { font-size: 1.27cqw; }
   .prototype-stage h1 { font-size: 2.73cqw; }
   .prototype-stage h2, .prototype-stage h3 { font-size: 1.95cqw; }

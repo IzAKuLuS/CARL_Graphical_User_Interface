@@ -91,6 +91,8 @@ export function projectTelemetry(state: TelemetryState, now: number): DashboardD
   const data = createDashboardData();
   data.connection = state.connected ? 'online' : 'offline';
   data.heartbeat = health(state, 'heartbeat', now);
+  data.throttleController = health(state, 'throttleStatus', now);
+  data.steeringController = health(state, 'steeringAngle', now);
   const hb = fresh(state, 'heartbeat', now);
   const throttle = fresh(state, 'throttleStatus', now);
   const encoder = fresh(state, 'encoders', now);
@@ -105,6 +107,8 @@ export function projectTelemetry(state: TelemetryState, now: number): DashboardD
     data.teleopReady = !!(flags & TELEOP_READY) && !data.estopActive;
   }
   if (throttle) {
+    data.throttleController = throttle.faults || throttle.state === 3 || throttle.state === 4
+      ? 'fault' : throttle.state === 0 ? 'unknown' : 'online';
     data.throttle = THROTTLE_LABELS[throttle.state as number];
     data.throttleFaults = throttle.faults as number;
     data.appliedLeft = throttle.applied_left as number;
@@ -114,11 +118,18 @@ export function projectTelemetry(state: TelemetryState, now: number): DashboardD
     data.encoderLeft = encoder.rear_left_counts as number;
     data.encoderRight = encoder.rear_right_counts as number;
   }
-  if (steering && !((steering.status as number) & STEERING_STALE)) {
-    data.steeringValid = steering.valid === true && steering.status === 1;
-    data.steeringCalibrated = steering.calibrated as boolean;
-    data.steeringAngleDeg = data.steeringValid && data.steeringCalibrated
-      ? (steering.angle_rad as number) * 180 / Math.PI : null;
+  if (steering) {
+    // The bridge's timeout sentinel is not evidence of a live steering Teensy.
+    // Calibration controls angle display, not whether feedback is healthy.
+    if ((steering.status as number) & STEERING_STALE) {
+      data.steeringController = 'stale';
+    } else {
+      data.steeringValid = steering.valid === true && steering.status === 1;
+      data.steeringController = data.steeringValid ? 'online' : 'fault';
+      data.steeringCalibrated = steering.calibrated as boolean;
+      data.steeringAngleDeg = data.steeringValid && data.steeringCalibrated
+        ? (steering.angle_rad as number) * 180 / Math.PI : null;
+    }
   }
   return sanitizeDashboardData(data);
 }

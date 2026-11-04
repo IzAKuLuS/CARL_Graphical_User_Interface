@@ -35,11 +35,17 @@ async function until(predicate,label,timeout=10000){
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
     const external=[];page.on('request',request=>{if(!request.url().startsWith('http://127.0.0.1:3212'))external.push(request.url());});
     const row=label=>page.locator('.detail-row').filter({has:page.locator('span',{hasText:new RegExp(`^${label}$`)})}).first().locator('strong');
-    const nav=async name=>{await page.getByRole('button',{name,exact:true}).click();};
+    const nav=async name=>{
+      await page.getByRole('button',{name,exact:true}).click();
+      await page.locator(`.passenger-dashboard[data-page="${name}"]`).waitFor({state:'visible'});
+    };
     const equalRow=async(label,value)=>until(async()=>await row(label).innerText()===value,`${label}: ${value}`);
+    const indicator=async(name,health)=>until(async()=>await page.getByRole('img',{name:`${name} Teensy: ${health}`,exact:true}).count()===1,`${name} indicator: ${health}`);
     await page.goto('http://127.0.0.1:3212');
     await until(async()=>await page.locator('.status-indicator').first().innerText()==='Live','live heartbeat');
-    await page.screenshot({path:'.test-build/browser-drive.png'});
+    await indicator('Throttle','Online');await indicator('Steering','Stale');
+    assert.equal(await page.locator('.view-footer').count(),0,'Production footer labels removed');
+    await page.screenshot({path:'.test-build/browser-drive.png',animations:'disabled'});
     await nav('Telemetry');
     await equalRow('CARL bridge endpoints','Detected');
     await equalRow('Vehicle mode','Teleop');
@@ -47,16 +53,27 @@ async function until(predicate,label,timeout=10000){
     const first=await row('Rear left encoder').innerText();
     await until(async()=>await row('Rear left encoder').innerText()!==first,'changing encoders');
     fixture.setMode('steering');await equalRow('Steering angle','30.0 °');await equalRow('Steering sensor','Valid · calibrated');
+    await indicator('Steering','Online');await equalRow('Throttle Teensy','Online');await equalRow('Steering Teensy','Online');
+    fixture.setMode('steering-uncalibrated');await equalRow('Steering angle','—');await equalRow('Steering sensor','Valid · uncalibrated');
+    await indicator('Steering','Online');
+    await nav('Drive');await page.screenshot({path:'.test-build/browser-drive.png',animations:'disabled'});await nav('Telemetry');
+    fixture.setMode('steering-fault');await indicator('Steering','Fault');await equalRow('Steering Teensy','Fault');
+    fixture.setMode('steering');await indicator('Steering','Online');
     await page.locator('.telemetry-page').evaluate(el=>{el.scrollTop=0;});
-    await page.screenshot({path:'.test-build/browser-telemetry.png'});
+    await page.screenshot({path:'.test-build/browser-telemetry.png',animations:'disabled'});
     results.checks.push('live topics, 75% signed throttle, changing encoders and calibrated steering');
 
     fixture.setMode('pause');
     await equalRow('Heartbeat','Stale');await equalRow('Applied left','—');await equalRow('Steering angle','—');
+    await indicator('Throttle','Stale');await indicator('Steering','Stale');
     fixture.setMode('live');await equalRow('Heartbeat','Online');
     fixture.setMode('malformed');await equalRow('Applied left','—');
+    await indicator('Throttle','Unknown');
     fixture.setMode('estop');await equalRow('Emergency stop','Active');await equalRow('Throttle state','E-stop');
+    await indicator('Throttle','Fault');
     fixture.setMode('live');await equalRow('Emergency stop','Clear');
+    await indicator('Throttle','Online');
+    results.checks.push('THR/STR healthy, uncalibrated, fault, stale, malformed and recovered lights; no production footer labels');
     results.checks.push('stale, malformed, e-stop and fresh-data recovery');
 
     fixture.disconnectClients();await until(()=>fixture.stats().connections>=2,'automatic reconnect');

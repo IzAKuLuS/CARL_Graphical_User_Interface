@@ -39,7 +39,7 @@ export default function TelemetryView({ data, speed, unit }: TelemetryProps) {
             <Row label="Throttle Teensy" value={<HealthText value={data.throttleController} />} />
             <Row label="Steering Teensy" value={<HealthText value={data.steeringController} />} />
             <p className="section-note">
-              Controller indicators require independent health feedback. GUI command publishing is disabled.
+              THR follows throttle feedback; STR follows steering feedback. GUI command publishing is disabled.
             </p>
           </section>
         </div>

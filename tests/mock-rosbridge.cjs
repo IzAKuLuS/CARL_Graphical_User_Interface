@@ -2,7 +2,7 @@
 // Local integration fixture only; never opens a vehicle transport.
 const { WebSocketServer } = require('next/dist/compiled/ws');
 const TOPICS = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle'];
-const MODES = new Set(['live','pause','malformed','estop','silent','steering','subscription-error']);
+const MODES = new Set(['live','pause','malformed','estop','silent','steering','steering-uncalibrated','steering-fault','subscription-error']);
 
 function startFixture({port=9192}={}) {
   const server = new WebSocketServer({host:'127.0.0.1',port});
@@ -35,7 +35,10 @@ function startFixture({port=9192}={}) {
       const messages={
         '/carl/heartbeat':{counter:step%256,flags:mode==='estop'?2:5,mode:mode==='estop'?2:1},
         '/carl/throttle_status':mode==='malformed'?{state:99}:{state:mode==='estop'?4:2,faults:mode==='estop'?2:0,applied_left:mode==='estop'?0:.75,applied_right:mode==='estop'?0:-.75},
-        '/carl/steering_angle':mode==='steering'?{status:1,valid:true,calibrated:true,sensor_voltage:2.5,angle_rad:Math.PI/6}:{status:128,valid:false,calibrated:false,sensor_voltage:null,angle_rad:null},
+        '/carl/steering_angle':mode==='steering'?{status:1,valid:true,calibrated:true,sensor_voltage:2.5,angle_rad:Math.PI/6}
+          :mode==='steering-uncalibrated'?{status:1,valid:true,calibrated:false,sensor_voltage:2.5,angle_rad:null}
+          :mode==='steering-fault'?{status:2,valid:false,calibrated:false,sensor_voltage:0,angle_rad:null}
+          :{status:128,valid:false,calibrated:false,sensor_voltage:null,angle_rad:null},
         '/carl/encoders':{rear_left_counts:12480+step*4,rear_right_counts:12464+step*4},
       };
       const now=Date.now();
@@ -67,5 +70,5 @@ if(require.main===module) {
     else if(MODES.has(mode))fixture.setMode(mode);
     console.log('Fixture:',fixture.stats());
   });
-  console.log('LOCAL SAMPLE ROS FIXTURE ws://127.0.0.1:9192 — live / pause / malformed / estop / silent / steering / subscription-error / disconnect');
+  console.log(`LOCAL SAMPLE ROS FIXTURE ws://127.0.0.1:9192 — ${[...MODES,'disconnect'].join(' / ')}`);
 }

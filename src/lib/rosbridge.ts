@@ -1,306 +1,364 @@
-import { EventEmitter } from "events";
-import { getRosbridgeUrl } from "@/lib/rosConfig";
-import type {
-  ROSMessage,
-  ROSCallback,
-  ROSMessageData,
-  ROSMessageBase,
-} from "@/types/ros";
+import { getRosbridgeUrl, validateRosbridgeUrl } from './rosConfig';
+import type { ROSCallback } from '../types/ros';
+import { systemScheduler, type Scheduler } from './scheduler';
 
-function isBase64(s: string): boolean {
-  return s.length > 0 && s.length % 4 === 0 && /^[A-Za-z0-9+/]+=*$/.test(s);
+export interface ConnectionSnapshot {
+  readonly status: 'disconnected' | 'connecting' | 'connected' | 'reconnecting';
+  readonly error: string | null;
 }
 
-class ROSBridge extends EventEmitter {
+export const DISCONNECTED: ConnectionSnapshot = Object.freeze({ status: 'disconnected', error: null });
+export const TRANSPORT_LIMITS = Object.freeze({
+  connectTimeoutMs: 8_000,
+  idleTimeoutMs: 15_000,
+  maxMessageChars: 1_048_576,
+  maxBufferedBytes: 262_144,
+  maxPendingServices: 32,
+});
+
+/** Small injectable boundary: production uses browser APIs; tests control time and sockets. */
+interface Runtime extends Scheduler {
+  socket: (url: string) => WebSocket;
+  random: () => number;
+}
+export interface SubscriptionOptions {
+  throttleRateMs?: number;
+  queueLength?: number;
+  onError?: (error: Error) => void;
+}
+interface Subscriber {
+  callback: ROSCallback<unknown>;
+  onError?: (error: Error) => void;
+}
+interface Subscription {
+  messageType: string;
+  throttleRateMs: number;
+  queueLength: number;
+  subscribers: Set<Subscriber>;
+}
+interface PendingService {
+  timer: ReturnType<typeof setTimeout>;
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+}
+interface Opening {
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (error: Error) => void;
+}
+type EventName = 'connected' | 'disconnected' | 'state';
+
+function record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/** One connection, bounded work, and no replay of publishes or service calls after failure. */
+export class ROSBridge {
+  private readonly runtime: Runtime;
   private ws: WebSocket | null = null;
-  private url: string = "";
-  private connected: boolean = false;
-  private subscriptions: Map<
-    string,
-    { messageType: string; callbacks: ROSCallback<unknown>[] }
-  > = new Map();
-  private connectPromise: Promise<void> | null = null;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private reconnectAttempt: number = 0;
-  private readonly RECONNECT_BASE_MS = 1000;
-  private readonly RECONNECT_MAX_MS = 30000;
+  private url = '';
+  private wanted = false;
+  private owners = 0;
+  private opening: Opening | null = null;
+  private snapshot = DISCONNECTED;
+  private listeners = new Map<EventName, Set<() => void>>();
+  private subscriptions = new Map<string, Subscription>();
+  private pending = new Map<string, PendingService>();
+  private requestId = 0;
+  private reconnectAttempt = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  private connectTimer: ReturnType<typeof setTimeout> | undefined;
+  private idleTimer: ReturnType<typeof setTimeout> | undefined;
+  private lastReceivedAt = 0;
+  private diagnostics = { received: 0, invalidMessages: 0, callbackErrors: 0, reconnects: 0 };
 
-  async connect(url: string = getRosbridgeUrl()): Promise<void> {
-    if (this.connected) return;
-    if (this.connectPromise) return this.connectPromise;
-
-    this.url = url;
-    this.connectPromise = new Promise((resolve, reject) => {
-      try {
-        this.ws = new WebSocket(this.url);
-        this.ws.binaryType = "arraybuffer";
-
-        this.ws.onopen = () => {
-          console.log("Connected to ROSBridge server");
-          this.connected = true;
-          this.reconnectAttempt = 0;
-          this.emit("connected");
-          this.resubscribeAll();
-          this.connectPromise = null;
-          resolve();
-        };
-
-        this.ws.onclose = () => {
-          console.log("Disconnected from ROSBridge server");
-          this.connected = false;
-          this.emit("disconnected");
-          this.connectPromise = null;
-          this.scheduleReconnect();
-        };
-
-        this.ws.onerror = () => {
-          const error = new Error(
-            `Unable to open the ROSBridge WebSocket at ${this.url}`,
-          );
-          console.warn(error.message);
-          if (!this.connected) {
-            this.connectPromise = null;
-            reject(error);
-          }
-        };
-
-        this.ws.onmessage = this.handleMessage.bind(this);
-      } catch (error) {
-        console.error("Error connecting to ROSBridge:", error);
-        this.connectPromise = null;
-        reject(error);
-      }
-    });
-
-    return this.connectPromise;
-  }
-
-  private handleMessage(event: MessageEvent) {
-    try {
-      const data = JSON.parse(event.data);
-
-      if (data.op === "service_response") {
-        this.emit(`response:${data.id}`, data);
-        return;
-      }
-
-      if (data.op === "param_response") {
-        this.emit(`response:${data.id}`, data);
-        return;
-      }
-
-      if (data.op === "publish" && data.topic && data.msg) {
-        const subscription = this.subscriptions.get(data.topic);
-        if (subscription) {
-          const msg = data.msg as ROSMessageData;
-          if (msg.data && typeof msg.data === "string" && isBase64(msg.data)) {
-            msg.data = this.base64ToUint8Array(msg.data);
-          }
-          subscription.callbacks.forEach((callback) => {
-            try {
-              callback(msg);
-            } catch (err) {
-              console.error(`[rosbridge] Callback error on topic ${data.topic}:`, err);
-            }
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error handling message:", error);
-    }
-  }
-
-  private base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  }
-
-  private resubscribeAll() {
-    console.log("Resubscribing to all topics...");
-    for (const [topic, { messageType }] of this.subscriptions) {
-      this.sendSubscription(topic, messageType);
-    }
-  }
-
-  private sendSubscription(topic: string, messageType: string) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn("WebSocket not ready, queuing subscription");
-      return;
-    }
-
-    const message: ROSMessageBase = {
-      op: "subscribe",
-      topic: topic,
-      type: messageType,
+  constructor(runtime: Partial<Runtime> = {}) {
+    this.runtime = {
+      ...systemScheduler, socket: url => new WebSocket(url), random: Math.random, ...runtime,
     };
-
-    this.ws.send(JSON.stringify(message));
   }
 
-  async getParam(name: string): Promise<any> {
-    const response = await this.callService<{ name: string }, { value?: any }>(
-      "/rosapi/get_param",
-      "rosapi/GetParam",
-      { name },
-      10000,
-    );
+  getSnapshot = (): ConnectionSnapshot => this.snapshot;
+  getDiagnostics = () => ({ ...this.diagnostics, pendingServices: this.pending.size, subscriptions: this.subscriptions.size });
+  subscribeConnection = (callback: () => void): (() => void) => {
+    this.on('state', callback);
+    return () => this.off('state', callback);
+  };
 
-    if (response.value === undefined) {
-      throw new Error(`Parameter ${name} not found`);
+  on(event: EventName, callback: () => void): this {
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
+    this.listeners.get(event)!.add(callback);
+    return this;
+  }
+  off(event: EventName, callback: () => void): this {
+    this.listeners.get(event)?.delete(callback);
+    return this;
+  }
+  private notify(event: EventName) {
+    for (const callback of this.listeners.get(event) ?? []) {
+      try { callback(); } catch { this.diagnostics.callbackErrors++; }
     }
-    return response.value;
+  }
+  private update(snapshot: ConnectionSnapshot) {
+    if (snapshot.status === this.snapshot.status && snapshot.error === this.snapshot.error) return;
+    this.snapshot = Object.freeze(snapshot);
+    this.notify('state');
   }
 
-  async callService<TReq extends object, TRes = any>(
-    service: string,
-    serviceType: string,
-    args: TReq,
-    timeoutMs: number = 5000,
-  ): Promise<TRes> {
-    if (!this.ws || !this.connected) {
-      throw new Error(`Not connected to ROS — cannot call ${service}`);
+  /** The last mounted ROS consumer owns shutdown, including React Strict Mode cleanup. */
+  retain(): () => void {
+    this.owners++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (--this.owners === 0) this.disconnect();
+    };
+  }
+
+  connect(url = getRosbridgeUrl()): Promise<void> {
+    let endpoint: string;
+    try { endpoint = validateRosbridgeUrl(url); }
+    catch (error) {
+      if (!this.ws) this.update({ status: 'disconnected', error: (error as Error).message });
+      return Promise.reject(error);
     }
+    if (this.url === endpoint && this.ws) {
+      if (this.isConnected()) return Promise.resolve();
+      if (this.opening) return this.opening.promise;
+    }
+    this.wanted = false;
+    this.retire(new Error('ROS connection replaced'));
+    this.url = endpoint;
+    this.wanted = true;
+    this.reconnectAttempt = 0;
+    return this.open();
+  }
 
-    return new Promise<TRes>((resolve, reject) => {
-      const id = Math.random().toString(36).slice(2, 11);
-
-      const timer = setTimeout(() => {
-        this.removeAllListeners(`response:${id}`);
-        reject(
-          new Error(`Service call ${service} timed out after ${timeoutMs}ms`),
-        );
-      }, timeoutMs);
-
-      this.once(`response:${id}`, (response: any) => {
-        clearTimeout(timer);
-
-        // rosbridge service_response shape:
-        //   { op: 'service_response', id, service, values, result }
-        // result is true on success, false on failure.
-        if (response.result === false) {
-          const msg =
-            response.values?.message ?? `Service ${service} returned failure`;
-          reject(new Error(msg));
+  private open(): Promise<void> {
+    // Store the deferred before constructing the socket: synchronous failures
+    // must not leave an already-rejected promise stuck as the current attempt.
+    let resolve!: () => void, reject!: (error: Error) => void;
+    const promise = new Promise<void>((ok, fail) => { resolve = ok; reject = fail; });
+    const attempt = { promise, resolve, reject };
+    this.opening = attempt;
+    this.update({ status: 'connecting', error: this.snapshot.error });
+    if (this.opening !== attempt || !this.wanted) return promise;
+    try {
+      const socket = this.runtime.socket(this.url);
+      this.ws = socket;
+      socket.onopen = () => {
+        if (this.ws !== socket) return;
+        this.runtime.clearTimeout(this.connectTimer);
+        this.connectTimer = undefined;
+        this.lastReceivedAt = this.runtime.now();
+        for (const [topic, subscription] of this.subscriptions) {
+          if (!this.sendSubscription(topic, subscription)) return;
+        }
+        this.reconnectAttempt = 0;
+        const opening = this.opening;
+        this.opening = null;
+        this.checkIdle(socket);
+        this.update({ status: 'connected', error: null });
+        if (this.ws !== socket) {
+          opening?.reject(new Error('ROS connection superseded during startup'));
           return;
         }
-
-        resolve(response.values as TRes);
-      });
-
-      const request = {
-        op: "call_service",
-        id,
-        service,
-        type: serviceType,
-        args,
+        opening?.resolve();
+        this.notify('connected');
       };
-
-      try {
-        this.ws!.send(JSON.stringify(request));
-      } catch (err) {
-        clearTimeout(timer);
-        this.removeAllListeners(`response:${id}`);
-        reject(err);
-      }
-    });
-  }
-
-  subscribe<T>(
-    topic: string,
-    messageType: string,
-    callback: ROSCallback<T>,
-  ): () => void {
-    console.log(`Subscribing to ${topic} (${messageType})`);
-
-    const subscription = this.subscriptions.get(topic);
-    if (subscription) {
-      subscription.callbacks.push(callback as ROSCallback<unknown>);
-    } else {
-      this.subscriptions.set(topic, {
-        messageType,
-        callbacks: [callback as ROSCallback<unknown>],
-      });
-      if (this.connected && this.ws?.readyState === WebSocket.OPEN) {
-        this.sendSubscription(topic, messageType);
-      }
+      socket.onclose = () => {
+        if (this.ws === socket) this.retire(new Error(`ROS connection closed at ${this.url}`));
+      };
+      socket.onerror = () => {
+        if (this.ws === socket) this.retire(new Error(`Unable to reach rosbridge at ${this.url}`));
+      };
+      socket.onmessage = event => {
+        if (this.ws === socket) this.receive(event.data);
+      };
+      this.connectTimer = this.runtime.setTimeout(() => {
+        if (this.ws === socket) this.retire(new Error(`ROS connection timed out at ${this.url}`));
+      }, TRANSPORT_LIMITS.connectTimeoutMs);
+    } catch {
+      this.retire(new Error(`Unable to open rosbridge at ${this.url}`));
     }
-
-    return () => {
-      const sub = this.subscriptions.get(topic);
-      if (sub) {
-        sub.callbacks = sub.callbacks.filter((cb) => cb !== callback);
-        if (sub.callbacks.length === 0) {
-          this.subscriptions.delete(topic);
-          if (this.connected && this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(
-              JSON.stringify({
-                op: "unsubscribe",
-                topic: topic,
-              }),
-            );
-          }
-        }
-      }
-    };
+    return promise;
   }
 
-  publish<T>(topic: string, messageType: string, message: T): boolean {
-    if (!this.ws || !this.connected) return false;
+  private checkIdle(socket: WebSocket) {
+    const remaining = TRANSPORT_LIMITS.idleTimeoutMs - (this.runtime.now() - this.lastReceivedAt);
+    if (remaining <= 0) {
+      this.retire(new Error('Rosbridge stopped responding; reconnecting'));
+      return;
+    }
+    this.idleTimer = this.runtime.setTimeout(() => {
+      if (this.ws === socket) this.checkIdle(socket);
+    }, remaining);
+  }
 
-    const rosMessage: ROSMessage = {
-      op: "publish",
-      topic: topic,
-      type: messageType,
-      msg: message as unknown as ROSMessageData,
-    };
+  /** Detach first so late close/open/message callbacks cannot affect a newer session. */
+  private retire(error: Error) {
+    const socket = this.ws;
+    const wasConnected = this.snapshot.status === 'connected';
+    this.ws = null;
+    for (const timer of [this.connectTimer, this.idleTimer, this.reconnectTimer]) this.runtime.clearTimeout(timer);
+    this.connectTimer = this.idleTimer = this.reconnectTimer = undefined;
+    this.opening?.reject(error);
+    this.opening = null;
+    for (const [id] of this.pending) this.finishService(id, error);
+    if (socket) {
+      socket.onopen = socket.onclose = socket.onerror = socket.onmessage = null;
+      try { socket.close(); } catch { /* Already unusable; cleanup must still finish. */ }
+    }
+    this.update({ status: 'disconnected', error: this.wanted ? error.message : null });
+    if (wasConnected) this.notify('disconnected');
+    if (this.wanted) this.scheduleReconnect();
+  }
 
+  private scheduleReconnect() {
+    if (!this.wanted || this.ws || this.reconnectTimer !== undefined) return;
+    const base = Math.min(1_000 * 2 ** Math.min(this.reconnectAttempt++, 5), 30_000);
+    const delay = Math.min(30_000, Math.round(base * (0.8 + 0.4 * this.runtime.random())));
+    this.update({ status: 'reconnecting', error: this.snapshot.error });
+    this.reconnectTimer = this.runtime.setTimeout(() => {
+      this.reconnectTimer = undefined;
+      if (!this.wanted) return;
+      this.diagnostics.reconnects++;
+      void this.open().catch(() => { /* retire schedules the next bounded attempt. */ });
+    }, delay);
+  }
+
+  private send(message: object): boolean {
+    if (!this.ws || this.ws.readyState !== 1) return false;
     try {
-      this.ws.send(JSON.stringify(rosMessage));
+      if (this.ws.bufferedAmount > TRANSPORT_LIMITS.maxBufferedBytes) throw new Error('ROS send queue full');
+      this.ws.send(JSON.stringify(message));
       return true;
-    } catch (error) {
-      console.error("Error publishing message:", error);
+    } catch {
+      this.retire(new Error('Rosbridge send failed or its output queue is full'));
       return false;
     }
   }
 
-  private scheduleReconnect(): void {
-    if (this.reconnectTimer || !this.url) return;
-    const base = Math.min(
-      this.RECONNECT_BASE_MS * Math.pow(2, this.reconnectAttempt),
-      this.RECONNECT_MAX_MS
-    );
-    const jitter = base * 0.2 * (Math.random() * 2 - 1); // ±20%
-    const delay = Math.round(base + jitter);
-    this.reconnectAttempt++;
-    console.log(`Reconnecting to ROSBridge in ${delay}ms (attempt ${this.reconnectAttempt})...`);
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = null;
-      if (!this.connected) {
-        this.connect(this.url).catch(() => {
-          // onclose will schedule the next attempt
-        });
+  private receive(raw: unknown) {
+    this.diagnostics.received++;
+    if (typeof raw !== 'string' || raw.length > TRANSPORT_LIMITS.maxMessageChars) {
+      this.diagnostics.invalidMessages++;
+      return;
+    }
+    let message: unknown;
+    try { message = JSON.parse(raw); } catch { this.diagnostics.invalidMessages++; return; }
+    if (!record(message) || typeof message.op !== 'string') {
+      this.diagnostics.invalidMessages++;
+      return;
+    }
+    this.lastReceivedAt = this.runtime.now();
+    if (message.op === 'service_response' || message.op === 'param_response') {
+      if (typeof message.id !== 'string') return;
+      this.finishService(message.id, message.result === false
+        ? new Error(`ROS service failed: ${typeof message.service === 'string' ? message.service : message.id}`) : null,
+      message.values);
+      return;
+    }
+    if (message.op === 'status' && message.level === 'error') {
+      const error = new Error(`Rosbridge: ${String(message.msg ?? 'Request rejected').slice(0, 256)}`);
+      if (typeof message.id === 'string' && this.pending.has(message.id)) this.finishService(message.id, error);
+      else {
+        this.update({ status: this.snapshot.status, error: error.message });
+        for (const [topic, subscription] of this.subscriptions) {
+          if (message.id !== `subscribe:${topic}`) continue;
+          for (const { onError } of subscription.subscribers) {
+            try { onError?.(error); } catch { this.diagnostics.callbackErrors++; }
+          }
+        }
       }
-    }, delay);
+      return;
+    }
+    if (message.op !== 'publish' || typeof message.topic !== 'string') return;
+    const subscription = this.subscriptions.get(message.topic);
+    if (!subscription) return;
+    const value = message.msg;
+    // Preserve byte-array support without attempting it for every telemetry field.
+    if (record(value) && typeof value.data === 'string' && value.data.length > 0
+      && value.data.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(value.data)) {
+      try { value.data = Uint8Array.from(atob(value.data), c => c.charCodeAt(0)); }
+      catch { this.diagnostics.invalidMessages++; return; }
+    }
+    for (const { callback } of subscription.subscribers) {
+      try { callback(value); } catch { this.diagnostics.callbackErrors++; }
+    }
   }
 
-  isConnected(): boolean {
-    return this.connected && this.ws?.readyState === WebSocket.OPEN;
+  private sendSubscription(topic: string, sub: Subscription): boolean {
+    return this.send({ op: 'subscribe', id: `subscribe:${topic}`, topic, type: sub.messageType,
+      throttle_rate: sub.throttleRateMs, queue_length: sub.queueLength, compression: 'none' });
   }
+
+  subscribe<T>(topic: string, messageType: string, callback: ROSCallback<T>, options: SubscriptionOptions = {}): () => void {
+    if (!topic.startsWith('/') || !messageType) throw new Error('Subscriptions need an absolute topic and message type');
+    const { throttleRateMs = 100, queueLength = 1, onError } = options;
+    if (!Number.isInteger(throttleRateMs) || throttleRateMs < 0 || !Number.isInteger(queueLength) || queueLength < 1) {
+      throw new Error('Subscription rate and queue length must be nonnegative/positive integers');
+    }
+    let sub = this.subscriptions.get(topic);
+    if (sub && (sub.messageType !== messageType || sub.throttleRateMs !== throttleRateMs || sub.queueLength !== queueLength)) {
+      throw new Error(`Conflicting subscription configuration for ${topic}`);
+    }
+    const subscriber: Subscriber = { callback: callback as ROSCallback<unknown>, onError };
+    if (sub) sub.subscribers.add(subscriber);
+    else {
+      sub = { messageType, throttleRateMs, queueLength, subscribers: new Set([subscriber]) };
+      this.subscriptions.set(topic, sub);
+      if (this.isConnected()) this.sendSubscription(topic, sub);
+    }
+    const registered = sub;
+    return () => {
+      if (this.subscriptions.get(topic) !== registered || !registered.subscribers.delete(subscriber)) return;
+      if (registered.subscribers.size) return;
+      this.subscriptions.delete(topic);
+      if (this.isConnected()) this.send({ op: 'unsubscribe', id: `subscribe:${topic}`, topic });
+    };
+  }
+
+  async getParam(name: string): Promise<unknown> {
+    const response = await this.callService<{ name: string }, { value?: unknown }>(
+      '/rosapi/get_param', 'rosapi_msgs/srv/GetParam', { name }, 10_000);
+    if (response.value === undefined) throw new Error(`Parameter ${name} not found`);
+    return response.value;
+  }
+
+  callService<TReq extends object, TRes = unknown>(service: string, serviceType: string, args: TReq, timeoutMs = 5_000): Promise<TRes> {
+    if (!this.isConnected()) return Promise.reject(new Error(`Not connected to ROS — cannot call ${service}`));
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 60_000) return Promise.reject(new Error('Service timeout must be in (0, 60000] ms'));
+    if (this.pending.size >= TRANSPORT_LIMITS.maxPendingServices) return Promise.reject(new Error('Too many pending ROS services'));
+    return new Promise<TRes>((resolve, reject) => {
+      const id = `service:${++this.requestId}`;
+      const timer = this.runtime.setTimeout(() => this.finishService(id, new Error(`Service ${service} timed out`)), timeoutMs);
+      this.pending.set(id, { timer, resolve: value => resolve(value as TRes), reject });
+      if (!this.send({ op: 'call_service', id, service, type: serviceType, args })) {
+        this.finishService(id, new Error(`Unable to send ROS service ${service}`));
+      }
+    });
+  }
+
+  private finishService(id: string, error: Error | null, value?: unknown) {
+    const pending = this.pending.get(id);
+    if (!pending) return;
+    this.pending.delete(id);
+    this.runtime.clearTimeout(pending.timer);
+    if (error) pending.reject(error); else pending.resolve(value);
+  }
+
+  publish<T>(topic: string, messageType: string, message: T): boolean {
+    if (!topic.startsWith('/') || !messageType) throw new Error('Publishes need an absolute topic and message type');
+    return this.isConnected() && this.send({ op: 'publish', topic, type: messageType, msg: message });
+  }
+  isConnected(): boolean { return this.snapshot.status === 'connected' && this.ws?.readyState === 1; }
 
   disconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    if (this.ws) {
-      this.ws.close();
-    }
+    this.wanted = false;
     this.subscriptions.clear();
-    this.connected = false;
+    this.retire(new Error('ROS connection disconnected'));
   }
 }
 

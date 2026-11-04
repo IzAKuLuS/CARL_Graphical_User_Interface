@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { performance } = require('node:perf_hooks');
-const { previewData, speedValue, batteryReading, batteryColor, sanitizeDashboardData } = require('../.test-build/dashboard.js');
-const { ingest, setConnection, projectTelemetry, sameDashboard } = require('../.test-build/telemetry-store.js');
+const { previewData, speedValue, batteryReading, batteryColor, sanitizeDashboardData } = require('../.test-build/lib/passenger/dashboard.js');
+const { ingest, setConnection, projectTelemetry, sameDashboard } = require('../.test-build/lib/passenger/telemetry-store.js');
 let count = 0;
 function check(name, test) { test(); count++; console.log(`PASS ${name}`); }
 const driving = previewData('driving');
@@ -21,6 +21,14 @@ setConnection(state,true);
 check('Real heartbeat flags preserve mode and teleop status', () => { ingest(state,'heartbeat',hb,100); const d=projectTelemetry(state,100); assert.equal(d.heartbeat,'online'); assert.equal(d.vehicleMode,'Teleop'); assert.equal(d.teleopReady,true); assert.equal(d.estopActive,false); });
 check('Heartbeat fault does not erase the estop indication', () => { ingest(state,'heartbeat',{...hb,flags:2,mode:2},101); const d=projectTelemetry(state,101); assert.equal(d.heartbeat,'fault'); assert.equal(d.estopActive,true); });
 check('Throttle enum uses authoritative firmware mapping', () => { for (const [index,label] of ['Initializing','Idle','Driving','Safe stop','E-stop'].entries()) { ingest(state,'throttleStatus',{...throttle,state:index},102); assert.equal(projectTelemetry(state,102).throttle,label); } });
+check('75% forward/reverse throttle passes through telemetry without clipping', () => {
+  for (const sign of [-1, 1]) {
+    assert.equal(ingest(state,'throttleStatus',{...throttle,applied_left:sign*.75,applied_right:sign*.75},103),true);
+    const data=projectTelemetry(state,103);
+    assert.equal(data.appliedLeft,sign*.75); assert.equal(data.appliedRight,sign*.75);
+    assert.equal(data.throttle,'Driving');
+  }
+});
 check('Heartbeat expiry does not require a socket disconnect', () => { ingest(state,'heartbeat',hb,1000); assert.equal(projectTelemetry(state,2000).heartbeat,'online'); assert.equal(projectTelemetry(state,2001).heartbeat,'stale'); });
 check('Malformed heartbeat clears health instead of refreshing it', () => { ingest(state,'heartbeat',hb,2100); assert.equal(ingest(state,'heartbeat',{...hb,flags:'bad'},2101),false); assert.equal(projectTelemetry(state,2101).heartbeat,'unknown'); });
 check('Invalid throttle enums are rejected', () => assert.equal(ingest(state,'throttleStatus',{...throttle,state:7},2200),false));

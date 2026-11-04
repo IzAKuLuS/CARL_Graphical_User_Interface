@@ -1,39 +1,61 @@
 {
   "application": "CARL_Graphical_User_Interface (actual repository)",
+  "validation_date": "2026-11-03",
   "production_build": "passed",
   "isolated_test_build": "passed",
-  "lint": "passed",
+  "lint": "passed with zero warnings",
   "typecheck": "passed",
-  "data_regressions": 32,
-  "browser_checks": {
-    "changing_encoder_counts": [
-      16212,
-      19332
-    ],
-    "heartbeat_mode_estop_fault_teleop_flags": "passed",
-    "stale_heartbeat_and_expired_throttle": "passed",
-    "disconnect_retry_available": "passed",
-    "automatic_recovery_without_reload": "passed",
-    "legacy_redirects": [
-      "/common",
-      "/sensor-data",
-      "/robot/tb3_0"
-    ],
-    "host_clock_default": "live local date/time",
-    "native_frame": {
-      "width": 1024,
-      "height": 600
-    },
-    "dock": [
-      "Drive",
-      "Telemetry",
-      "System"
-    ],
-    "header_popups": false
+  "local_regression_checks": 67,
+  "skipped_checks": 0,
+  "browser_checks": [
+    "live topics, 75% signed throttle, changing encoders and calibrated steering",
+    "stale, malformed, e-stop and fresh-data recovery",
+    "reconnect without duplicate subscriptions and visible subscription failures",
+    "hidden-page telemetry suspension and fresh resume",
+    "units, clock preferences, navigation persistence and fullscreen failure",
+    "bounded traffic and single connection under 4x CPU throttling",
+    "silent half-open peer replaced and live telemetry recovered",
+    "legacy redirects, no page errors, no internet assets, no vehicle commands"
+  ],
+  "resource_soak": {
+    "cpuThrottle": 4,
+    "seconds": 65,
+    "messages": 2560,
+    "taskSeconds": 1.898,
+    "heapMiB": 5.03,
+    "heapDeltaMiB": -0.66,
+    "domNodes": 167,
+    "memory_metric": "Chromium JavaScript heap, not total browser/server RSS",
+    "target": "host Chromium; Jetson hardware not benchmarked"
+  },
+  "deterministic_stress": {
+    "telemetry_burst_samples": 10000,
+    "telemetry_burst_display_updates": 1,
+    "ingest_benchmark_samples": 100000,
+    "disconnect_reconnect_cycles": 100,
+    "prolonged_outage_attempt_checks": 100,
+    "resource_cleanup": "passed: no retained timers, subscriptions, or pending service calls after stop"
   },
   "deployment_bundle_contains_fixture_endpoint": false,
-  "existing_ROS_hooks_transport_and_configuration": "unchanged",
-  "physical_joystick_test": "pending user test",
+  "runtime_assets": "local fonts and icons; no external requests observed",
+  "runtime_architecture": "shared observable transport; normalized scalar store; independently testable telemetry session; isolated presentation views",
+  "vehicle_command_publishes": 0,
+  "ros_topics_unchanged": [
+    "/carl/encoders",
+    "/carl/heartbeat",
+    "/carl/throttle_status",
+    "/carl/steering_angle"
+  ],
+  "native_frame": {
+    "width": 1024,
+    "height": 600
+  },
+  "legacy_redirects": [
+    "/common",
+    "/sensor-data",
+    "/robot/tb3_0"
+  ],
+  "physical_vehicle_test": "not performed; all WebSocket traffic used a localhost fixture",
   "unavailable_inputs": [
     "velocity estimator",
     "ambient sensor",

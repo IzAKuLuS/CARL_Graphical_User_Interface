@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { previewData, speedValue } = require('../.test-build/dashboard.js');
+const { previewData, speedValue } = require('../.test-build/lib/passenger/dashboard.js');
 const driving = previewData('driving');
 assert.equal(speedValue(previewData('reference'), 'km/h'), null, 'Planned speed must not be presented as zero.');
 assert.equal(speedValue(driving, 'km/h'), '12.4');

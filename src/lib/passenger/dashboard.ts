@@ -1,4 +1,4 @@
-/** Presentation-only contract. Bind to useROS in the real app, not in this prototype. */
+/** Scalar presentation contract shared by live telemetry and isolated previews. */
 export type Health = 'online' | 'stale' | 'offline' | 'unknown' | 'fault';
 export type Page = 'Drive' | 'Telemetry' | 'System';
 export type Scenario = 'reference' | 'driving' | 'stale' | 'disconnected';
@@ -29,15 +29,21 @@ export interface DashboardData {
 export const HEALTH_LABELS: Record<Health, string> = {
   online: 'Online', stale: 'Stale', offline: 'Offline', unknown: 'Unknown', fault: 'Fault'
 };
-export function previewData(scenario: Scenario): DashboardData {
-  const reference: DashboardData = {
-    sample: true, connection: 'online', bridgePresence: 'Sample endpoints', heartbeat: 'online',
-    throttleController: 'online', steeringController: 'online', throttle: 'Idle',
+export function createDashboardData(): DashboardData {
+  return {
+    sample: false, connection: 'offline', bridgePresence: null, heartbeat: 'offline',
+    throttleController: 'unknown', steeringController: 'unknown', throttle: null,
     speedKmh: null, ambientC: null, batteryPercent: null,
     encoderLeft: null, encoderRight: null, heartbeatCounter: null,
     vehicleMode: null, estopActive: null, teleopReady: null,
     steeringAngleDeg: null, steeringValid: null, steeringCalibrated: null,
     throttleFaults: null, appliedLeft: null, appliedRight: null
+  };
+}
+export function previewData(scenario: Scenario): DashboardData {
+  const reference: DashboardData = {
+    ...createDashboardData(), sample: true, connection: 'online', bridgePresence: 'Sample endpoints',
+    heartbeat: 'online', throttleController: 'online', steeringController: 'online', throttle: 'Idle',
   };
   if (scenario === 'driving') return { ...reference, throttle: 'Active', speedKmh: 12.4,
     ambientC: null, batteryPercent: 78, encoderLeft: 12480, encoderRight: 12464,

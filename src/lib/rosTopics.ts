@@ -11,7 +11,7 @@ import type {
   CarlHeartbeatMessage,
   CarlThrottleCommandMessage,
   CarlThrottleStatusMessage,
-} from "@/types/carl";
+} from "../types/carl";
 
 export interface TopicEntry<TMessage = unknown> {
   path: string;

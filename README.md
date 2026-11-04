@@ -38,13 +38,116 @@ The font and icons are bundled locally. No runtime internet connection or Docker
 ## Checks
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
+npm run check
 npm run build
 ```
 
-The sample-data WebSocket fixture in `tests/mock-rosbridge.cjs` binds only to localhost port 9192 and never opens hardware transports. For development smoke tests, build with `CARL_GUI_TEST_BUILD=1 NEXT_PUBLIC_ROSBRIDGE_URL=ws://127.0.0.1:9192 npm run build`, then run `CARL_GUI_TEST_BUILD=1 npm start -- --hostname 127.0.0.1 --port 3212`. This uses `.next-test` and cannot replace the normal `.next` deployment build. Keep fixture settings out of the vehicle deployment.
+`check` runs lint with zero warnings, TypeScript checks, and the complete local
+regression suite. Tests cover transport failures, telemetry validation/freshness,
+resource cleanup, display behavior and the previous signed 75% throttle regression.
+Production builds also run lint and type checks. Tests use controlled clocks and
+sockets, so a prolonged outage or 100 reconnect cycles can be checked without
+waiting in real time or contacting CARL.
+
+The sample-data fixture in `tests/mock-rosbridge.cjs` binds only to localhost
+port 9192. The browser suite starts/stops this fixture and the test Next.js server
+itself, using Chromium at 1024 × 600:
+
+```bash
+CARL_GUI_TEST_BUILD=1 NEXT_PUBLIC_ROSBRIDGE_URL=ws://127.0.0.1:9192 npm run build
+CARL_GUI_SOAK_SECONDS=65 npm run test:browser
+```
+
+Browser tests require a development installation of Playwright and Chromium.
+If they are outside the normal Node/browser search paths, set
+`CARL_PLAYWRIGHT_MODULE=/absolute/path/to/node_modules/playwright` and
+`CARL_CHROMIUM_EXECUTABLE=/absolute/path/to/chromium`. Browser tooling is not a
+production dependency. The suite verifies live, malformed, stale and e-stop
+telemetry; reconnect and half-open peers; rejected subscriptions and manual
+retry; hidden-page suspension; preferences; fullscreen failure; legacy redirects;
+no external assets; and zero vehicle command publishes. It applies 4× CPU
+throttling during the configurable 5–300 second resource soak (10 seconds by
+default). Results and native screenshots are written under `.test-build/`.
+
+Fixture builds use `.next-test`, separate from the normal `.next` deployment
+build. Keep fixture settings out of deployment. For interactive fixture testing,
+run `node tests/mock-rosbridge.cjs` and start the test build on localhost port
+3212; the fixture accepts `live`, `pause`, `malformed`, `estop`, `silent`,
+`steering`, `subscription-error`, and `disconnect` through its terminal.
+
+## Runtime and maintenance
+
+The live path has four explicit layers:
+
+| Layer | Responsibility |
+| --- | --- |
+| `src/lib/rosbridge.ts` | One shared WebSocket, connection state, subscriptions, bounded service requests and failure cleanup |
+| `src/lib/passenger/telemetry-store.ts` | Validate/copy scalar readings and derive display values using monotonic freshness deadlines |
+| `src/lib/passenger/telemetry-session.ts` | Own subscriptions, discard obsolete callbacks, retain latest samples, and schedule display snapshots |
+| Passenger view components | Render snapshots and keep local display preferences; they make no ROS calls |
+
+The ROS hook observes an immutable shared connection snapshot with React's
+`useSyncExternalStore`; individual components do not maintain competing socket
+state. The last ROS consumer unmounting closes the connection and cancels pending
+work. Old sockets cannot deliver messages or complete service calls for a newer
+session. Intentional disconnect cancels reconnection; unexpected loss retries
+with jittered exponential backoff, capped at 30 seconds. Opening a socket has an
+8-second deadline. A peer that sends no valid protocol envelopes for 15 seconds
+is replaced, even when the operating system has not closed its TCP connection.
+Graph-discovery replies keep an otherwise quiet connection alive.
+
+Subscriptions request at most 10 messages/second per topic with a one-message
+server queue. The four current streams therefore have a 40-message/second
+telemetry budget. This uses rosbridge's documented `throttle_rate` and
+`queue_length` fields; it does not reduce the vehicle's ROS publisher rates.
+See the [rosbridge subscription protocol](https://github.com/RobotWebTools/rosbridge_suite/blob/ros2/ROSBRIDGE_PROTOCOL.md#434-subscribe-c--s).
+The receiver copies only validated scalar fields and retains at most four
+samples. Extra headers/payload fields cannot accumulate in the store. Display
+updates run at most every 100 ms, skip unchanged snapshots, and still expire
+readings when no new messages arrive. Heartbeat/throttle/encoders expire after
+one second; steering after 250 ms. These are receive-time freshness checks,
+not a guarantee about source age when clocks or upstream transports differ.
+
+Hidden pages unsubscribe telemetry, discard stored readings and stop the display
+timer. Returning requires fresh samples. The connection and one non-overlapping
+discovery request every five seconds after completion remain available. The
+header, Drive and System views are memoized with relevant scalar props, so
+off-screen encoder counts do not force their rendering. The clock updates once
+per minute. One locally bundled variable font is shared throughout the display.
+
+Transport limits are named in `TRANSPORT_LIMITS`: 1 MiB of JSON characters per
+message, 256 KiB of pending outbound bytes, and 32 pending service requests.
+Service deadlines must be finite and at most 60 seconds; disconnect rejects them
+immediately, and requests/publishes are never replayed after reconnection. Invalid
+JSON and throwing callbacks are isolated and counted without per-message console
+logging. Subscription rejection clears its reading and appears under System;
+Retry connection remains available to rebuild subscriptions after that fault.
+`getDiagnostics()` on the transport and telemetry session exposes bounded counters
+for tests and future diagnostic UI. A rendering failure replaces readings with an
+explicit unavailable screen and a recovery action.
+
+To add telemetry, update the typed topic catalog, the normalized reading/freshness
+policy, the session's topic list and its presentation together. Add malformed,
+stale, disconnect and recovery tests alongside the happy path. Keep subscriptions
+and timers out of presentation components; use the existing injectable scheduler
+and socket boundary for deterministic failure tests. Generic `subscribe`,
+`callService`, `getParam` and `publish` remain transport APIs; the passenger GUI
+uses only read operations.
+
+For a Jetson deployment, use `npm run build` followed by `npm start`, with a
+fullscreen browser. Run the browser soak on the target device to measure total
+browser/server CPU, RSS, thermals and response time alongside the ROS workload.
+Host Chromium CPU throttling and JavaScript-heap metrics are useful regressions;
+they do not establish Jetson capacity or the full browser's memory footprint.
+
+Validation on November 3, 2026: all 67 local regression checks passed without
+skips, along with lint, type checks, production and isolated builds, and the
+Chromium failure/recovery suite. A 65-second soak with 4× CPU throttling received
+2,560 telemetry messages (below the 2,600-message budget), retained one connection
+and four subscriptions, and ended at 5.03 MiB of JavaScript heap (0.66 MiB below
+the initial reading after garbage collection). Native screenshots were visually
+checked; deployment assets contain no fixture endpoint. See `tests/validation.json`
+for the recorded checks and measurement limits.
 
 ## License
 

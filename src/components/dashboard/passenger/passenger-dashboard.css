@@ -1,10 +1,6 @@
-@font-face {
-  font-family: 'CARL Inter'; src: url('/fonts/inter-latin.woff2') format('woff2');
-  font-style: normal; font-weight: 100 900; font-display: swap;
-}
 .prototype-stage { color-scheme: dark; --bg: #030405; --fg: #f5f6f7; --muted: #afb2b8; --line: #282a2d; --green: #19ed66; --amber: #ffc261; --red: #ff6b70; }
 .prototype-stage * { box-sizing: border-box; }
-.prototype-stage { font-family: 'CARL Inter', Arial, sans-serif; color: var(--fg); -webkit-font-smoothing: antialiased; }
+.prototype-stage { font-family: inherit; color: var(--fg); -webkit-font-smoothing: antialiased; }
 .prototype-stage button, .prototype-stage input { font: inherit; }
 .prototype-stage button { color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .prototype-stage button { border: 0; background: none; }

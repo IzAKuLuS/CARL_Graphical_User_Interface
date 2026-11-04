@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { batteryColor, batteryReading } from '@/lib/passenger/dashboard';
+import { batteryColor, batteryReading } from '../../../lib/passenger/dashboard';
 
 /** One SVG rectangle, no animation loop, canvas, images or extra dependency. */
 function BatteryIcon({ percent }: { percent: number | null }) {

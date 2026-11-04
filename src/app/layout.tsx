@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import AppProviders from "./providers";
 
-const inter = localFont({ src: "../../public/fonts/inter-latin.woff2", display: "swap" });
+const inter = localFont({ src: "../../public/fonts/inter-latin.woff2", display: "swap", weight: "100 900" });
 
 export const metadata: Metadata = {
   title: "CARL Vehicle Dashboard",

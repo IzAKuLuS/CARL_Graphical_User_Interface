@@ -1,46 +1,71 @@
-// Local integration fixture only. This is not a real ROS server or a vehicle connection.
+'use strict';
+// Local integration fixture only; never opens a vehicle transport.
 const { WebSocketServer } = require('next/dist/compiled/ws');
-const server = new WebSocketServer({host:'127.0.0.1',port:9192});
-const topics = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle'];
-let mode = 'live';
-const clients = new Set();
-server.on('connection', socket => {
-  clients.add(socket);
-  const subscriptions = new Set();
-  let step=0;
-  socket.on('message', buffer => {
-    const message=JSON.parse(buffer.toString());
-    if(message.op==='subscribe') subscriptions.add(message.topic);
-    if(message.op==='unsubscribe') subscriptions.delete(message.topic);
-    if(message.op==='call_service') socket.send(JSON.stringify({op:'service_response',id:message.id,result:true,values:{topics}}));
-    if(message.op==='publish') console.error('UNEXPECTED VEHICLE COMMAND',message.topic);
+const TOPICS = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle'];
+const MODES = new Set(['live','pause','malformed','estop','silent','steering','subscription-error']);
+
+function startFixture({port=9192}={}) {
+  const server = new WebSocketServer({host:'127.0.0.1',port});
+  const clients = new Map();
+  let mode='live';
+  const stats={connections:0,messages:0,commands:0,subscribeRequests:0,serviceCalls:0};
+  server.on('connection',socket=>{
+    stats.connections++;
+    const subscriptions=new Map();
+    clients.set(socket,subscriptions);
+    let step=0;
+    socket.on('message',buffer=>{
+      let message;
+      try { message=JSON.parse(buffer.toString()); } catch { return; }
+      if(message.op==='subscribe') {
+        stats.subscribeRequests++;
+        subscriptions.set(message.topic,{rate:message.throttle_rate??0,last:0,id:message.id});
+        if(mode==='subscription-error') socket.send(JSON.stringify({op:'status',level:'error',id:message.id,msg:'Unknown message type'}));
+      }
+      if(message.op==='unsubscribe') subscriptions.delete(message.topic);
+      if(message.op==='call_service') {
+        stats.serviceCalls++;
+        if(mode!=='silent') socket.send(JSON.stringify({op:'service_response',id:message.id,result:true,values:{topics:TOPICS}}));
+      }
+      if(message.op==='publish') stats.commands++;
+    });
+    const timer=setInterval(()=>{
+      if(['pause','silent','subscription-error'].includes(mode)||socket.readyState!==1) return;
+      step++;
+      const messages={
+        '/carl/heartbeat':{counter:step%256,flags:mode==='estop'?2:5,mode:mode==='estop'?2:1},
+        '/carl/throttle_status':mode==='malformed'?{state:99}:{state:mode==='estop'?4:2,faults:mode==='estop'?2:0,applied_left:mode==='estop'?0:.75,applied_right:mode==='estop'?0:-.75},
+        '/carl/steering_angle':mode==='steering'?{status:1,valid:true,calibrated:true,sensor_voltage:2.5,angle_rad:Math.PI/6}:{status:128,valid:false,calibrated:false,sensor_voltage:null,angle_rad:null},
+        '/carl/encoders':{rear_left_counts:12480+step*4,rear_right_counts:12464+step*4},
+      };
+      const now=Date.now();
+      for(const [topic,sub] of subscriptions) {
+        if(now-sub.last<sub.rate || !messages[topic]) continue;
+        sub.last=now;
+        stats.messages++;
+        socket.send(JSON.stringify({op:'publish',topic,msg:messages[topic]}));
+      }
+    },20);
+    socket.on('close',()=>{clearInterval(timer);clients.delete(socket);});
   });
-  const timer=setInterval(()=>{
-    if(mode==='pause' || socket.readyState!==1)return;
-    step++;
-    const stamp={header:{stamp:{sec:0,nanosec:0},frame_id:'base_link'}};
-    const messages={
-      '/carl/heartbeat':{...stamp,counter:step%256,flags:5,mode:1},
-      '/carl/throttle_status':{...stamp,state:Math.floor(step/40)%2 ? 1 : 2,faults:0,applied_left:Math.floor(step/40)%2 ? 0 : .12,applied_right:Math.floor(step/40)%2 ? 0 : .11},
-      '/carl/steering_angle':{...stamp,status:128,valid:false,calibrated:false,sensor_voltage:null,angle_rad:null},
-      '/carl/encoders':{...stamp,rear_left_counts:12480+step*4,rear_right_counts:12464+step*4}
-    };
-    for(const topic of subscriptions){
-      let msg=messages[topic];
-      if(mode==='estop' && topic==='/carl/heartbeat') msg={...msg,flags:2,mode:2};
-      if(mode==='estop' && topic==='/carl/throttle_status') msg={...msg,state:4,faults:2,applied_left:0,applied_right:0};
-      if(mode==='malformed' && topic==='/carl/throttle_status') msg={state:99};
-      socket.send(JSON.stringify({op:'publish',topic,msg}));
-    }
-  },50);
-  socket.on('close',()=>{clearInterval(timer);clients.delete(socket);});
-});
-// Test controls through the terminal, never exposed in the passenger interface.
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', value=>{
-  const next=value.trim();
-  if(['live','pause','malformed','estop'].includes(next))mode=next;
-  if(next==='disconnect')for(const client of clients)client.close();
-  console.log('Fixture mode:',mode);
-});
-console.log('LOCAL SAMPLE ROS FIXTURE ws://127.0.0.1:9192 — input: live / pause / malformed / estop / disconnect');
+  return {
+    server,
+    setMode(next) {if(!MODES.has(next)) throw new Error(`Invalid fixture mode: ${next}`);mode=next;},
+    disconnectClients(){for(const socket of clients.keys()) socket.close();},
+    stats(){return {...stats,activeConnections:clients.size,subscriptions:[...clients.values()].reduce((n,s)=>n+s.size,0)};},
+    async close(){for(const socket of clients.keys()) socket.terminate();await new Promise(resolve=>server.close(resolve));},
+  };
+}
+module.exports={startFixture};
+
+if(require.main===module) {
+  const fixture=startFixture();
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data',value=>{
+    const mode=value.trim();
+    if(mode==='disconnect')fixture.disconnectClients();
+    else if(MODES.has(mode))fixture.setMode(mode);
+    console.log('Fixture:',fixture.stats());
+  });
+  console.log('LOCAL SAMPLE ROS FIXTURE ws://127.0.0.1:9192 — live / pause / malformed / estop / silent / steering / subscription-error / disconnect');
+}

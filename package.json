@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint src",
+    "lint": "eslint src --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "test": "tsc src/lib/passenger/dashboard.ts src/lib/passenger/telemetry-store.ts --outDir .test-build --module commonjs --skipLibCheck && node tests/data.cjs && node tests/reliability.cjs"
+    "test": "tsc -p tests/tsconfig.json && node tests/run.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "check": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",

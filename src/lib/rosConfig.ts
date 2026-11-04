@@ -20,5 +20,18 @@ export function getRosbridgeUrl(): string {
   }
 
   const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${protocol}://${window.location.hostname}:${DEFAULT_ROSBRIDGE_PORT}`;
+  const hostname = window.location.hostname || 'localhost';
+  return `${protocol}://${hostname}:${DEFAULT_ROSBRIDGE_PORT}`;
+}
+
+/** Fail once for configuration mistakes instead of retrying them indefinitely. */
+export function validateRosbridgeUrl(value: string): string {
+  const url = new URL(value);
+  if (!['ws:', 'wss:'].includes(url.protocol) || url.username || url.password || url.hash) {
+    throw new Error('Use a ws:// or wss:// rosbridge address without credentials or a fragment.');
+  }
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.protocol !== 'wss:') {
+    throw new Error('HTTPS dashboards require a secure wss:// rosbridge address.');
+  }
+  return url.href;
 }

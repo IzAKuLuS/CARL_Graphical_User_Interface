@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
-import rosbridge from "@/lib/rosbridge";
-import { getRosbridgeUrl } from "@/lib/rosConfig";
-import type { ROSCallback } from "@/types/ros";
+'use client';
+
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import rosbridge, { DISCONNECTED, type SubscriptionOptions } from '@/lib/rosbridge';
+import { getRosbridgeUrl } from '@/lib/rosConfig';
+import type { ROSCallback } from '@/types/ros';
 
 interface UseROSOptions {
   url?: string;
@@ -10,128 +12,47 @@ interface UseROSOptions {
   onDisconnected?: () => void;
 }
 
-function requireAbsoluteTopic(topic: string): string {
-  if (!topic.startsWith("/")) {
-    throw new Error(`ROS topic must be absolute: ${topic}`);
-  }
-  return topic;
-}
-
-function connectionFailureMessage(url: string): string {
-  return `Could not connect to rosbridge at ${url}. Check that the server is running and the address is reachable.`;
-}
-
+/** All consumers observe the same immutable connection snapshot and socket. */
 export function useROS(options: UseROSOptions = {}) {
-  const {
-    url = getRosbridgeUrl(),
-    autoConnect = true,
-    onConnected,
-    onDisconnected,
-  } = options;
-
-  const [isConnected, setIsConnected] = useState(rosbridge.isConnected());
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const { url = getRosbridgeUrl(), autoConnect = true } = options;
+  const callbacks = useRef(options);
+  callbacks.current = options;
+  const state = useSyncExternalStore(rosbridge.subscribeConnection, rosbridge.getSnapshot, () => DISCONNECTED);
 
   const connect = useCallback(async (): Promise<boolean> => {
-    setConnectionError(null);
-    setIsConnecting(true);
-
-    try {
-      await rosbridge.connect(url);
-      return true;
-    } catch (error) {
-      console.warn("ROS connection unavailable:", error);
-      setIsConnecting(false);
-      setConnectionError(connectionFailureMessage(url));
-      return false;
-    }
+    // A rejected subscription can leave an otherwise healthy socket open.
+    // An explicit retry must create fresh subscriptions in that case too.
+    if (rosbridge.isConnected() && rosbridge.getSnapshot().error) rosbridge.disconnect();
+    try { await rosbridge.connect(url); return rosbridge.isConnected(); }
+    catch { return false; } // The shared snapshot carries the actionable error.
   }, [url]);
 
   useEffect(() => {
-    const handleConnect = () => {
-      console.log("ROS connection established");
-      setIsConnected(true);
-      setIsConnecting(false);
-      setConnectionError(null);
-      onConnected?.();
-    };
-
-    const handleDisconnect = () => {
-      console.log("ROS connection lost");
-      setIsConnected(false);
-      setIsConnecting(false);
-      onDisconnected?.();
-    };
-
-    rosbridge.on("connected", handleConnect);
-    rosbridge.on("disconnected", handleDisconnect);
-
-    if (autoConnect && !rosbridge.isConnected()) {
-      console.log("Attempting to connect to ROS...");
-      void connect();
-    }
-
+    const release = rosbridge.retain();
+    const connected = () => callbacks.current.onConnected?.();
+    const disconnected = () => callbacks.current.onDisconnected?.();
+    const online = () => { if (autoConnect && !rosbridge.isConnected()) void connect(); };
+    rosbridge.on('connected', connected).on('disconnected', disconnected);
+    window.addEventListener('online', online);
+    if (autoConnect) void connect();
     return () => {
-      rosbridge.off("connected", handleConnect);
-      rosbridge.off("disconnected", handleDisconnect);
+      rosbridge.off('connected', connected).off('disconnected', disconnected);
+      window.removeEventListener('online', online);
+      release();
     };
-  }, [autoConnect, connect, onConnected, onDisconnected]);
+  }, [autoConnect, connect]);
 
-  /**
-   * Subscribe to a topic.
-   *
-   * @param topic      Absolute topic path (for example '/carl/encoders').
-   * @param messageType ROS message type string.
-   * @param callback   Called with each incoming message.
-   * @returns Unsubscribe function.
-   */
-  const subscribe = useCallback(
-    <T>(
-      topic: string,
-      messageType: string,
-      callback: ROSCallback<T>,
-    ): (() => void) => {
-      return rosbridge.subscribe<T>(
-        requireAbsoluteTopic(topic),
-        messageType,
-        callback,
-      );
-    },
-    [],
-  );
-
-  /**
-   * Publish a message to a topic.
-   *
-   * @param topic       Absolute topic path.
-   * @param messageType ROS message type string.
-   * @param message     The message object.
-   * @returns true if sent, false if not connected.
-   */
-  const publish = useCallback(
-    <T>(
-      topic: string,
-      messageType: string,
-      message: T,
-    ): boolean => {
-      return rosbridge.publish<T>(
-        requireAbsoluteTopic(topic),
-        messageType,
-        message,
-      );
-    },
-    [],
-  );
+  const subscribe = useCallback(<T>(topic: string, messageType: string, callback: ROSCallback<T>, settings?: SubscriptionOptions) =>
+    rosbridge.subscribe(topic, messageType, callback, settings), []);
+  const publish = useCallback(<T>(topic: string, messageType: string, message: T) =>
+    rosbridge.publish(topic, messageType, message), []);
+  const disconnect = useCallback(() => rosbridge.disconnect(), []);
 
   return {
-    isConnected,
-    isConnecting,
-    connectionError,
-    subscribe,
-    publish,
-    connect,
-    disconnect: useCallback(() => rosbridge.disconnect(), []),
+    isConnected: state.status === 'connected',
+    isConnecting: state.status === 'connecting',
+    connectionError: state.error,
+    subscribe, publish, connect, disconnect,
   };
 }
 

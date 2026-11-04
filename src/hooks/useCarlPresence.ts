@@ -1,87 +1,51 @@
-import { useEffect, useState } from "react";
-import rosbridge from "@/lib/rosbridge";
-import { CARL_TOPICS } from "@/lib/rosTopics";
-import { useROS } from "./useROS";
+'use client';
 
-interface TopicsResponse {
-  topics?: string[];
-}
+import { useEffect, useState } from 'react';
+import rosbridge from '@/lib/rosbridge';
+import { CARL_TOPICS } from '@/lib/rosTopics';
 
 export type CarlConnectionState =
-  | "rosbridge-disconnected"
-  | "checking"
-  | "carl-bridge-unavailable"
-  | "carl-available";
+  | 'rosbridge-disconnected'
+  | 'checking'
+  | 'carl-bridge-unavailable'
+  | 'carl-available';
 
-const POLL_INTERVAL_MS = 5000;
-const REQUIRED_TOPICS = [
-  CARL_TOPICS.encoders.path,
-  CARL_TOPICS.throttleStatus.path,
-  CARL_TOPICS.heartbeat.path,
-];
+const POLL_INTERVAL_MS = 5_000;
+const REQUIRED_TOPICS = [CARL_TOPICS.encoders.path, CARL_TOPICS.throttleStatus.path, CARL_TOPICS.heartbeat.path];
 
-/**
- * Detect the single CARL bridge from its ROS graph endpoints.
- *
- * This confirms that the CARL bridge node has created its telemetry topics.
- * It does not prove that fresh firmware telemetry is arriving; heartbeat
- * freshness will be tracked separately when live telemetry is displayed.
- */
-export function useCarlPresence(): CarlConnectionState {
-  const { isConnected } = useROS();
-  const [state, setState] = useState<CarlConnectionState>(
-    isConnected ? "checking" : "rosbridge-disconnected",
-  );
+/** Graph discovery confirms endpoints, independently of firmware heartbeat freshness. */
+export function useCarlPresence(isConnected: boolean): CarlConnectionState {
+  const [state, setState] = useState<CarlConnectionState>('rosbridge-disconnected');
 
   useEffect(() => {
     if (!isConnected) {
-      setState("rosbridge-disconnected");
+      setState('rosbridge-disconnected');
       return;
     }
-
     let cancelled = false;
-
-    const discoverCarl = async () => {
+    let timer: ReturnType<typeof setTimeout>;
+    const discover = async () => {
       try {
-        const response = await rosbridge.callService<
-          Record<string, never>,
-          TopicsResponse
-        >(
-          "/rosapi/topics",
-          "rosapi_msgs/srv/Topics",
-          {},
-          5000,
-        );
-
+        const response = await rosbridge.callService<Record<string, never>, { topics?: unknown }>(
+          '/rosapi/topics', 'rosapi_msgs/srv/Topics', {}, POLL_INTERVAL_MS);
         if (cancelled) return;
-
-        const availableTopics = new Set(response.topics ?? []);
-        const hasCarlBridge = REQUIRED_TOPICS.every((topic) =>
-          availableTopics.has(topic),
-        );
-
-        setState(
-          hasCarlBridge ? "carl-available" : "carl-bridge-unavailable",
-        );
-      } catch (error) {
-        if (!cancelled) {
-          console.warn("[useCarlPresence] CARL discovery failed:", error);
-          setState("carl-bridge-unavailable");
-        }
+        const topics = response?.topics;
+        const available = Array.isArray(topics) && REQUIRED_TOPICS.every(topic => topics.includes(topic));
+        setState(available ? 'carl-available' : 'carl-bridge-unavailable');
+      } catch {
+        if (!cancelled) setState('carl-bridge-unavailable');
+      } finally {
+        // Schedule after completion: slow discovery cannot accumulate calls or
+        // allow an older reply to overwrite the result of a newer request.
+        if (!cancelled) timer = setTimeout(discover, POLL_INTERVAL_MS);
       }
     };
-
-    setState("checking");
-    void discoverCarl();
-    const interval = window.setInterval(discoverCarl, POLL_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
+    setState('checking');
+    void discover();
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [isConnected]);
 
-  return state;
+  return isConnected ? state : 'rosbridge-disconnected';
 }
 
 export default useCarlPresence;

@@ -86,16 +86,6 @@ export interface Twist {
   angular: { x: number; y: number; z: number };
 }
 
-export interface IMU {
-  header: Header;
-  orientation: Quaternion;
-  orientation_covariance: number[];
-  angular_velocity: Point;
-  angular_velocity_covariance: number[];
-  linear_acceleration: Point;
-  linear_acceleration_covariance: number[];
-}
-
 export interface LaserScan {
   header: Header;
   angle_min: number;

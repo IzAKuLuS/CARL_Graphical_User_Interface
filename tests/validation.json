@@ -1,0 +1,43 @@
+{
+  "application": "CARL_Graphical_User_Interface (actual repository)",
+  "production_build": "passed",
+  "isolated_test_build": "passed",
+  "lint": "passed",
+  "typecheck": "passed",
+  "data_regressions": 32,
+  "browser_checks": {
+    "changing_encoder_counts": [
+      16212,
+      19332
+    ],
+    "heartbeat_mode_estop_fault_teleop_flags": "passed",
+    "stale_heartbeat_and_expired_throttle": "passed",
+    "disconnect_retry_available": "passed",
+    "automatic_recovery_without_reload": "passed",
+    "legacy_redirects": [
+      "/common",
+      "/sensor-data",
+      "/robot/tb3_0"
+    ],
+    "host_clock_default": "live local date/time",
+    "native_frame": {
+      "width": 1024,
+      "height": 600
+    },
+    "dock": [
+      "Drive",
+      "Telemetry",
+      "System"
+    ],
+    "header_popups": false
+  },
+  "deployment_bundle_contains_fixture_endpoint": false,
+  "existing_ROS_hooks_transport_and_configuration": "unchanged",
+  "physical_joystick_test": "pending user test",
+  "unavailable_inputs": [
+    "velocity estimator",
+    "ambient sensor",
+    "BMS",
+    "independent controller health"
+  ]
+}

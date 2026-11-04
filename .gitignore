@@ -65,9 +65,6 @@ install/
 __pycache__/
 *.pyc
 
-# Generated models folders
-simulation/models/turtlebot3_waffle_*
-
-# Tauri
-src-tauri/gen
-src-tauri/target
+# Local data regression checks
+.test-build/
+.next-test/

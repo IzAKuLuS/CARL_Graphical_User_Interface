@@ -1,131 +1,61 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import {
-  Activity,
-  Cable,
-  CircleAlert,
-  RefreshCw,
-} from "lucide-react";
-import EncoderTelemetryPanel from "@/components/dashboard/EncoderTelemetryPanel";
-import ImuTelemetryPanel from "@/components/dashboard/ImuTelemetryPanel";
-import VehicleInterfacesPanel from "@/components/dashboard/VehicleInterfacesPanel";
-import { useCarlPresence } from "@/hooks/useCarlPresence";
-import { useROS } from "@/hooks/useROS";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCarlPresence } from '@/hooks/useCarlPresence';
+import { useROS } from '@/hooks/useROS';
+import { CARL_TOPICS } from '@/lib/rosTopics';
+import PassengerDashboard from './passenger/PassengerDashboard';
+import { DISPLAY_PERIOD_MS, ingest, projectTelemetry, sameDashboard, setConnection, type TelemetryState, type TelemetryTopic } from '@/lib/passenger/telemetry-store';
 
-function StatusDot({ active }: { active: boolean }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`h-2.5 w-2.5 rounded-full ${
-        active ? "bg-green-500" : "bg-gray-600"
-      }`}
-    />
-  );
-}
+const TOPICS: TelemetryTopic[] = ['heartbeat', 'throttleStatus', 'encoders', 'steeringAngle'];
 
+/** Replacement entry component. Keeps the existing transport and absolute topic catalog intact. */
 export default function DashboardClient() {
-  const { isConnected, isConnecting, connectionError, connect } = useROS();
-  const carlState = useCarlPresence();
-  const isCarlAvailable = carlState === "carl-available";
+  const { isConnected, subscribe, connectionError, connect, isConnecting } = useROS();
+  const presence = useCarlPresence();
+  const state = useRef<TelemetryState>({ connected: false, samples: {} });
+  const [data, setData] = useState(() => projectTelemetry(state.current, 0));
 
-  const carlStatusLabel = (() => {
-    switch (carlState) {
-      case "carl-available":
-        return "CARL bridge detected";
-      case "checking":
-        return "Checking ROS graph";
-      case "carl-bridge-unavailable":
-        return "CARL bridge not detected";
-      default:
-        return "Waiting for rosbridge";
-    }
-  })();
+  useEffect(() => {
+    const current = state.current;
+    setConnection(current, isConnected);
+    const flush = () => {
+      const next = projectTelemetry(current, performance.now());
+      setData(previous => sameDashboard(previous, next) ? previous : next);
+    };
+    flush();
+    if (!isConnected) return;
 
-  return (
-    <div className="h-screen overflow-y-auto bg-[#171717] text-white">
-      <header className="relative flex h-20 items-center gap-3.5 border-b border-[#333333] bg-[#232323] px-6">
-        <Image
-          src="/branding/avl_logo_white-removebg-preview.png"
-          alt="AVL logo"
-          width={105}
-          height={36}
-          priority
-          className="h-9 w-auto object-contain"
-        />
-        <div>
-          <h1 className="text-base font-semibold">CARL Vehicle Dashboard</h1>
-          <p className="text-sm text-gray-500">Single-vehicle ROS 2 interface</p>
-        </div>
-        <Image
-          src="/branding/CARL_higher_resolution-removebg-preview.png"
-          alt="CARL logo"
-          width={144}
-          height={60}
-          priority
-          className="pointer-events-none absolute left-1/2 h-20 w-auto -translate-x-1/2 object-contain"
-        />
-        <div className="ml-auto flex items-center gap-2.5 text-sm text-gray-400">
-          <StatusDot active={isConnected} />
-          {isConnected ? "Rosbridge connected" : "Rosbridge disconnected"}
-        </div>
-      </header>
+    let stopped = false;
+    // Receive path only validates and replaces latest samples, even for high-rate telemetry.
+    // React receives at most 10 snapshots/second; freshness is checked before every snapshot.
+    const unsubscribers = TOPICS.map(key => {
+      const topic = CARL_TOPICS[key];
+      return subscribe<unknown>(topic.path, topic.type, message => {
+        if (!stopped) ingest(current, key, message, performance.now());
+      });
+    });
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const resume = () => {
+      clearInterval(timer);
+      flush();
+      if (!document.hidden) timer = setInterval(flush, DISPLAY_PERIOD_MS);
+    };
+    document.addEventListener('visibilitychange', resume);
+    resume();
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', resume);
+      unsubscribers.forEach(unsubscribe => unsubscribe());
+      setConnection(current, false);
+    };
+  }, [isConnected, subscribe]);
 
-      <main className="mx-auto grid max-w-[1500px] gap-6 p-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-[#333333] bg-[#1e1e1e] p-6 lg:col-span-2">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#292929]">
-              {isCarlAvailable ? (
-                <Activity className="h-6 w-6 text-green-400" />
-              ) : (
-                <Cable className="h-6 w-6 text-gray-500" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-base font-semibold">{carlStatusLabel}</h2>
-              <p className="text-sm text-gray-500">
-                {isCarlAvailable
-                  ? "The CARL telemetry endpoints are present on the ROS graph."
-                  : "Start the CARL bridge and rosbridge server on the same ROS domain."}
-              </p>
-            </div>
-            {!isConnected && (
-              <button
-                type="button"
-                disabled={isConnecting}
-                onClick={() => void connect()}
-                className="ml-auto inline-flex h-10 items-center gap-2 rounded-md bg-[#00a5ff] px-4 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${isConnecting ? "animate-spin" : ""}`}
-                />
-                {isConnecting ? "Connecting" : "Retry connection"}
-              </button>
-            )}
-          </div>
-          {connectionError && !isConnected && (
-            <div
-              role="alert"
-              aria-live="polite"
-              className="mt-4 flex items-start gap-3 rounded-lg border border-red-900/70 bg-red-950/40 p-3 text-sm text-red-200"
-            >
-              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
-              <p>{connectionError}</p>
-            </div>
-          )}
-        </section>
-
-        <EncoderTelemetryPanel />
-        <VehicleInterfacesPanel />
-        <ImuTelemetryPanel />
-
-        <section className="rounded-xl border border-[#333333] bg-[#1e1e1e] p-5 text-sm text-gray-400 lg:col-span-2">
-          Command publishing is disabled while the CARL dashboard integration is
-          being validated. Encoder and IMU values above are read directly from
-          the absolute /carl/encoders, /carl/imu, and /carl/imu/temperature
-          topics.
-        </section>
-      </main>
-    </div>
-  );
+  const displayData = useMemo(() => ({ ...data, bridgePresence: {
+    'rosbridge-disconnected': null, 'checking': 'Checking…',
+    'carl-bridge-unavailable': 'Not detected', 'carl-available': 'Detected'
+  }[presence] }), [data, presence]);
+  return <PassengerDashboard data={displayData} connectionError={connectionError}
+    onReconnect={() => { void connect(); }} isConnecting={isConnecting} />;
 }

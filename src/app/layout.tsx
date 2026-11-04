@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import AppProviders from "./providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = localFont({ src: "../../public/fonts/inter-latin.woff2", display: "swap" });
 
 export const metadata: Metadata = {
   title: "CARL Vehicle Dashboard",

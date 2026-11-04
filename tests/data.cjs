@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict');
+const { previewData, speedValue } = require('../.test-build/dashboard.js');
+const driving = previewData('driving');
+assert.equal(speedValue(previewData('reference'), 'km/h'), null, 'Planned speed must not be presented as zero.');
+assert.equal(speedValue(driving, 'km/h'), '12.4');
+assert.equal(speedValue(driving, 'mph'), '7.7', 'Convert actual values when changing units.');
+assert.equal(speedValue({ ...driving, heartbeat: 'stale' }, 'km/h'), null, 'Do not retain a speed reading after loss of heartbeat.');
+assert.equal(speedValue({ ...driving, connection: 'offline' }, 'km/h'), null, 'Do not display speed while disconnected.');
+assert.equal(previewData('disconnected').steeringController, 'unknown', 'Loss of connection does not establish a controller fault.');
+assert.equal(previewData('reference').ambientC, null, 'Ambient sensor remains planned.');
+assert.equal(previewData('reference').batteryPercent, null, 'Missing BMS data must remain unavailable.');
+console.log('Passed 8 presentation data checks.');

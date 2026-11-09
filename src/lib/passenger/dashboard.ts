@@ -25,6 +25,21 @@ export interface DashboardData {
   throttleFaults: number | null;
   appliedLeft: number | null;
   appliedRight: number | null;
+  imuHealth: Health;
+  imuTemperatureHealth: Health;
+  imuDiagnosticsHealth: Health;
+  imuAccelX: number | null;
+  imuAccelY: number | null;
+  imuAccelZ: number | null;
+  imuGyroX: number | null;
+  imuGyroY: number | null;
+  imuGyroZ: number | null;
+  imuTemperatureC: number | null;
+  imuOrientationAvailable: boolean | null;
+  imuSensor: string | null;
+  imuStage: string | null;
+  imuError: string | null;
+  imuErrorCount: number | null;
 }
 export const HEALTH_LABELS: Record<Health, string> = {
   online: 'Online', stale: 'Stale', offline: 'Offline', unknown: 'Unknown', fault: 'Fault'
@@ -37,7 +52,11 @@ export function createDashboardData(): DashboardData {
     encoderLeft: null, encoderRight: null, heartbeatCounter: null,
     vehicleMode: null, estopActive: null, teleopReady: null,
     steeringAngleDeg: null, steeringValid: null, steeringCalibrated: null,
-    throttleFaults: null, appliedLeft: null, appliedRight: null
+    throttleFaults: null, appliedLeft: null, appliedRight: null,
+    imuHealth: 'unknown', imuTemperatureHealth: 'unknown', imuDiagnosticsHealth: 'unknown',
+    imuAccelX: null, imuAccelY: null, imuAccelZ: null,
+    imuGyroX: null, imuGyroY: null, imuGyroZ: null, imuTemperatureC: null,
+    imuOrientationAvailable: null, imuSensor: null, imuStage: null, imuError: null, imuErrorCount: null,
   };
 }
 export function previewData(scenario: Scenario): DashboardData {
@@ -91,5 +110,20 @@ export function sanitizeDashboardData(data: DashboardData): DashboardData {
     steeringCalibrated: online ? data.steeringCalibrated : null,
     appliedLeft: online ? finiteNumber(data.appliedLeft, -1, 1) : null,
     appliedRight: online ? finiteNumber(data.appliedRight, -1, 1) : null,
+    imuHealth: online ? data.imuHealth : 'offline',
+    imuTemperatureHealth: online ? data.imuTemperatureHealth : 'offline',
+    imuDiagnosticsHealth: online ? data.imuDiagnosticsHealth : 'offline',
+    imuAccelX: online ? finiteNumber(data.imuAccelX) : null,
+    imuAccelY: online ? finiteNumber(data.imuAccelY) : null,
+    imuAccelZ: online ? finiteNumber(data.imuAccelZ) : null,
+    imuGyroX: online ? finiteNumber(data.imuGyroX) : null,
+    imuGyroY: online ? finiteNumber(data.imuGyroY) : null,
+    imuGyroZ: online ? finiteNumber(data.imuGyroZ) : null,
+    imuTemperatureC: online ? finiteNumber(data.imuTemperatureC, -273.15) : null,
+    imuOrientationAvailable: online ? data.imuOrientationAvailable : null,
+    imuSensor: online ? data.imuSensor : null,
+    imuStage: online ? data.imuStage : null,
+    imuError: online ? data.imuError : null,
+    imuErrorCount: online ? finiteNumber(data.imuErrorCount, 0, 65535) : null,
   };
 }

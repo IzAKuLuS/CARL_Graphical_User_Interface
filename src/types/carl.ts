@@ -10,6 +10,21 @@ export interface Ros2Header {
   frame_id: string;
 }
 
+/** Standard sensor_msgs IMU/temperature messages, in the sensor frame. */
+export interface ImuMessage {
+  header: Ros2Header;
+  linear_acceleration: { x: number; y: number; z: number };
+  angular_velocity: { x: number; y: number; z: number };
+  orientation: { x: number; y: number; z: number; w: number };
+  orientation_covariance: number[];
+}
+export interface ImuTemperatureMessage {
+  header: Ros2Header;
+  temperature: number;
+  variance: number;
+}
+export interface StringMessage { data: string; }
+
 export interface CarlEncoderFeedbackMessage {
   header: Ros2Header;
   rear_left_counts: number;

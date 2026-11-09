@@ -8,7 +8,8 @@ import { DISPLAY_PERIOD_MS, ingest, projectTelemetry, sameDashboard, setConnecti
 interface TelemetryPort {
   subscribe<T>(topic: string, type: string, callback: ROSCallback<T>, options?: SubscriptionOptions): () => void;
 }
-const TOPICS: readonly TelemetryTopic[] = ['heartbeat', 'throttleStatus', 'encoders', 'steeringAngle'];
+const TOPICS: readonly TelemetryTopic[] = ['heartbeat', 'throttleStatus', 'encoders', 'steeringAngle',
+  'imu', 'imuTemperature', 'imuDiagnostics'];
 
 /** Owns receive buffers and display cadence, independently of React and the DOM. */
 export class TelemetrySession {

@@ -4,7 +4,7 @@ A web dashboard for monitoring CARL vehicle telemetry. The passenger display is 
 
 ## How It Works
 
-The Next.js and React frontend connects to a ROS 2 rosbridge server over WebSocket. It detects the CARL bridge through its ROS topics and subscribes to `/carl/encoders`, `/carl/heartbeat`, `/carl/throttle_status`, and `/carl/steering_angle` to update the dashboard in real time.
+The Next.js and React frontend connects to a ROS 2 rosbridge server over WebSocket. It detects the CARL bridge through its ROS topics and subscribes to `/carl/encoders`, `/carl/heartbeat`, `/carl/throttle_status`, `/carl/steering_angle`, `/carl/imu`, `/carl/imu/temperature`, and `/carl/imu/diagnostics` to update the dashboard in real time.
 
 ## Run Locally
 
@@ -25,6 +25,29 @@ Open [http://localhost:3000](http://localhost:3000) in the browser on CARL’s h
 
 For development with hot reload, use `npm run dev` instead of the build/start commands. Set `NEXT_PUBLIC_ROSBRIDGE_URL` before building if a different backend address is needed.
 
+### Passenger touchscreen launcher (Linux)
+
+The launcher, icon image, and service templates are included in this repository.
+On each computer after cloning, install Node.js and Chromium, run `npm ci` and
+`npm run build`, then run `python3 scripts/install-passenger-launcher.py` once
+as the desktop user (without `sudo`). This creates a **CARL Passenger GUI**
+desktop icon and an on-demand user service using that clone's actual path.
+Re-run the installer if the clone moves or the Python installation changes.
+Clicking the icon starts the production GUI server on `127.0.0.1:3215` and opens
+a dedicated Chromium kiosk window on the one active **1024 × 600 landscape**
+display. The launcher checks the live monitor layout each time and stops with an
+error if that display is absent or ambiguous; it does not change the resolution,
+orientation, or position of other monitors. On this laptop the touchscreen is
+`HDMI-1` at `1024x600+0+0`. Set `CARL_TOUCHSCREEN_OUTPUT` in the launcher
+environment if a future setup has more than one matching display.
+
+The GUI service stays available if the browser closes. To stop only that service,
+run `systemctl --user stop carl-passenger-gui.service`. Its log is available with
+`journalctl --user -u carl-passenger-gui.service`. This launcher does not start
+CARL's ROS bridge, rosbridge, or any control process; without them the dashboard
+still opens with telemetry unavailable. Ubuntu's Chromium Snap uses its own
+profile under `~/snap/chromium/common/carl-passenger-gui`.
+
 ## Joystick Test
 
 Run the normal CARL bridge and joystick application, plus rosbridge, in the same ROS domain and with the CARL message workspace sourced. The GUI reads hardware feedback independently of joystick commands and does not publish vehicle commands. For a local browser, the default WebSocket endpoint is `ws://localhost:9090`.
@@ -33,7 +56,17 @@ During your joystick test, open Telemetry and watch left/right encoder counts, t
 
 THR uses `/carl/throttle_status`; STR uses `/carl/steering_angle`. Green indicates recent healthy feedback, amber indicates expired feedback (or the bridge's steering timeout), and red indicates a reported fault or throttle safe/e-stop state. Missing or malformed feedback remains Unknown. Steering calibration is required to display an angle, but not for a healthy STR indicator. These lights describe the available feedback, not a full hardware self-test; heartbeat alone cannot establish either Teensy's status.
 
-Date/time comes from the local browser computer's OS clock and timezone; live time is the default. Correct CARL's OS clock/timezone if needed. Speed remains unavailable until a velocity estimator exists. Ambient temperature and battery percentage remain unavailable until their sensor/BMS inputs exist. IMU inputs are not subscribed to or displayed.
+Date/time comes from the local browser computer's OS clock and timezone; live time is the default. Correct CARL's OS clock/timezone if needed. Speed remains unavailable until a velocity estimator exists. Ambient temperature and battery percentage remain unavailable until their sensor/BMS inputs exist. The Telemetry page displays IMU acceleration X/Y/Z (m/s², including gravity),
+gyro X/Y/Z (rad/s), and sensor die temperature (°C, separate from ambient air).
+`/carl/imu` is standard `sensor_msgs/msg/Imu`; `/carl/imu/temperature` is
+`sensor_msgs/msg/Temperature`; `/carl/imu/diagnostics` is `std_msgs/msg/String`
+containing the sensor model, stage, readiness, error and cumulative error count.
+The existing CARL bridge publishes these topics for other ROS subscribers too.
+The current raw MPU stream has no fused orientation or heading. A negative
+orientation covariance is shown as Not provided. IMU numbers expire after
+500 ms, die temperature after 1 second, and diagnostics after 2.5 seconds.
+Malformed data clears that topic, and reconnect requires new samples. A
+historical error count alone is not a current sensor fault.
 
 The font and icons are bundled locally. No runtime internet connection or Docker is required. The responsive layout fills the native 1024 × 600 aspect ratio; use browser fullscreen mode on the passenger display.
 
@@ -50,6 +83,12 @@ resource cleanup, display behavior and the previous signed 75% throttle regressi
 Production builds also run lint and type checks. Tests use controlled clocks and
 sockets, so a prolonged outage or 100 reconnect cycles can be checked without
 waiting in real time or contacting CARL.
+
+The IMU display update was verified on 2026-11-05 with 46 unit cases, lint,
+TypeScript checks, production/fixture builds, desktop/mobile controls-page
+checks, and the local dashboard browser suite. Both displays also received
+live MPU-9250 motion, die temperature and diagnostic data via the existing
+rosbridge, with zero command publications. See [IMU validation](tests/imu-validation.json).
 
 The sample-data fixture in `tests/mock-rosbridge.cjs` binds only to localhost
 port 9192. The browser suite starts/stops this fixture and the test Next.js server
@@ -99,15 +138,16 @@ is replaced, even when the operating system has not closed its TCP connection.
 Graph-discovery replies keep an otherwise quiet connection alive.
 
 Subscriptions request at most 10 messages/second per topic with a one-message
-server queue. The four current streams therefore have a 40-message/second
+server queue. The seven current streams therefore have a 70-message/second
 telemetry budget. This uses rosbridge's documented `throttle_rate` and
 `queue_length` fields; it does not reduce the vehicle's ROS publisher rates.
 See the [rosbridge subscription protocol](https://github.com/RobotWebTools/rosbridge_suite/blob/ros2/ROSBRIDGE_PROTOCOL.md#434-subscribe-c--s).
-The receiver copies only validated scalar fields and retains at most four
+The receiver copies only validated scalar fields and retains at most seven
 samples. Extra headers/payload fields cannot accumulate in the store. Display
 updates run at most every 100 ms, skip unchanged snapshots, and still expire
 readings when no new messages arrive. Heartbeat/throttle/encoders expire after
-one second; steering after 250 ms. These are receive-time freshness checks,
+one second; steering after 250 ms. IMU motion expires after 500 ms, temperature
+after 1 second and diagnostics after 2.5 seconds. These are receive-time freshness checks,
 not a guarantee about source age when clocks or upstream transports differ.
 
 Hidden pages unsubscribe telemetry, discard stored readings and stop the display

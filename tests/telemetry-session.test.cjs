@@ -20,7 +20,7 @@ const throttle={state:2,faults:0,applied_left:.75,applied_right:-.75};
 
 test('only required topics are subscribed with one queued sample and 10 Hz rate',()=>{
   const s=setup(); s.session.setConnected(true);
-  assert.deepEqual([...s.active.keys()],['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle']);
+  assert.deepEqual([...s.active.keys()],['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle','/carl/imu','/carl/imu/temperature','/carl/imu/diagnostics']);
   for(const sub of s.history){assert.equal(sub.options.queueLength,1);assert.equal(sub.options.throttleRateMs,100);}
   assert.equal(s.time.timerCount,1);
   s.session.setConnected(false); assert.equal(s.active.size,0); assert.equal(s.time.timerCount,0);
@@ -60,7 +60,7 @@ test('hidden pages release subscriptions and display timers; resume requires new
   assert.equal(s.active.size,0);assert.equal(s.time.timerCount,0);
   obsolete(hb);s.time.advance(60000);
   assert.equal(s.session.getSnapshot().heartbeatCounter,null);
-  s.session.setVisible(true);assert.equal(s.active.size,4);assert.equal(s.time.timerCount,1);
+  s.session.setVisible(true);assert.equal(s.active.size,7);assert.equal(s.time.timerCount,1);
   obsolete(hb);s.time.advance(100);assert.equal(s.session.getSnapshot().heartbeatCounter,null);
   s.receive('heartbeat',hb);s.time.advance(100);assert.equal(s.session.getSnapshot().heartbeatCounter,8);
   s.session.setConnected(false);
@@ -94,8 +94,8 @@ test('throwing observers and cleanup functions do not stop scheduling or other c
   session.subscribe(()=>{throw new Error('Bad observer');});session.subscribe(()=>notifications++);
   session.setConnected(true);time.advance(100);assert.equal(time.timerCount,1);
   session.setConnected(false);
-  assert.equal(cleanups,4);assert.equal(notifications,2);assert.equal(time.timerCount,0);
-  assert.equal(session.getDiagnostics().cleanupErrors,4);
+  assert.equal(cleanups,7);assert.equal(notifications,2);assert.equal(time.timerCount,0);
+  assert.equal(session.getDiagnostics().cleanupErrors,7);
 });
 
 test('stored samples are independent scalar copies; oversized extra fields are discarded',()=>{
@@ -134,7 +134,7 @@ test('reentrant visibility changes cannot start a second display timer',()=>{
     if(!toggled){toggled=true;s.session.setVisible(false);s.session.setVisible(true);}
   });
   s.receive('heartbeat',hb);s.time.advance(100);
-  assert.equal(s.time.timerCount,1);assert.equal(s.active.size,4);
+  assert.equal(s.time.timerCount,1);assert.equal(s.active.size,7);
   s.session.setConnected(false);assert.equal(s.time.timerCount,0);
 });
 
@@ -144,7 +144,7 @@ test('a subscription failure does not disable other topics',()=>{
     if(topic==='/carl/heartbeat')throw new Error('Bad registration');
     callbacks++;return()=>cleanups++;
   }},time);
-  session.setConnected(true);assert.equal(callbacks,3);
+  session.setConnected(true);assert.equal(callbacks,6);
   assert.equal(session.getDiagnostics().subscriptionErrors,1);
-  session.setConnected(false);assert.equal(cleanups,3);assert.equal(time.timerCount,0);
+  session.setConnected(false);assert.equal(cleanups,6);assert.equal(time.timerCount,0);
 });

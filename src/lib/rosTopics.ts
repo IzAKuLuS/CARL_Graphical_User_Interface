@@ -11,6 +11,7 @@ import type {
   CarlHeartbeatMessage,
   CarlThrottleCommandMessage,
   CarlThrottleStatusMessage,
+  ImuMessage, ImuTemperatureMessage, StringMessage,
 } from "../types/carl";
 
 export interface TopicEntry<TMessage = unknown> {
@@ -21,6 +22,9 @@ export interface TopicEntry<TMessage = unknown> {
 }
 
 export interface CarlTopicMessageMap {
+  imu: ImuMessage;
+  imuTemperature: ImuTemperatureMessage;
+  imuDiagnostics: StringMessage;
   encoders: CarlEncoderFeedbackMessage;
   steeringAngle: CarlSteeringAngleMessage;
   throttleStatus: CarlThrottleStatusMessage;
@@ -34,6 +38,9 @@ type CarlTopicCatalog = {
 };
 
 export const CARL_TOPICS = {
+  imu: { path: "/carl/imu", type: "sensor_msgs/msg/Imu" },
+  imuTemperature: { path: "/carl/imu/temperature", type: "sensor_msgs/msg/Temperature" },
+  imuDiagnostics: { path: "/carl/imu/diagnostics", type: "std_msgs/msg/String" },
   steeringAngle: {
     path: "/carl/steering_angle",
     type: "carl_msgs/msg/CarlSteeringAngle",

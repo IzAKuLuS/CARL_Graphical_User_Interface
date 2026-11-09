@@ -62,6 +62,19 @@ async function until(predicate,label,timeout=10000){
     await page.locator('.telemetry-page').evaluate(el=>{el.scrollTop=0;});
     await page.screenshot({path:'.test-build/browser-telemetry.png',animations:'disabled'});
     results.checks.push('live topics, 75% signed throttle, changing encoders and calibrated steering');
+    await equalRow('Acceleration X','1.250 m/s²'); await equalRow('Acceleration Y','-2.500 m/s²');
+    await equalRow('Gyro Z','0.000 rad/s'); await equalRow('IMU die temperature','34.125 °C');
+    await equalRow('Sensor model','MPU-9250'); await equalRow('Orientation','Not provided');
+    await page.locator('#imu-data-title').scrollIntoViewIfNeeded();
+    await page.screenshot({path:'.test-build/browser-imu.png',animations:'disabled'});
+    fixture.setMode('imu-pause'); await equalRow('Motion stream','Stale'); await equalRow('Acceleration X','—');
+    await equalRow('IMU diagnostics','Stale'); await equalRow('Heartbeat','Online');
+    fixture.setMode('imu-malformed'); await equalRow('Motion stream','Unknown'); await equalRow('IMU diagnostics','Unknown');
+    fixture.setMode('imu-fault'); await equalRow('IMU diagnostics','Fault'); await equalRow('Sensor error','data_timeout');
+    fixture.setMode('imu-recovered'); await equalRow('IMU diagnostics','Online'); await equalRow('Sensor error count','5');
+    fixture.setMode('live'); await equalRow('Acceleration X','1.250 m/s²');
+    results.checks.push('IMU SI units, unavailable orientation, independent freshness, malformed data and sensor fault/recovery');
+
 
     fixture.setMode('pause');
     await equalRow('Heartbeat','Stale');await equalRow('Applied left','—');await equalRow('Steering angle','—');
@@ -77,7 +90,7 @@ async function until(predicate,label,timeout=10000){
     results.checks.push('stale, malformed, e-stop and fresh-data recovery');
 
     fixture.disconnectClients();await until(()=>fixture.stats().connections>=2,'automatic reconnect');
-    await equalRow('Heartbeat','Online');await until(()=>fixture.stats().subscriptions===4,'four restored subscriptions');
+    await equalRow('Heartbeat','Online');await until(()=>fixture.stats().subscriptions===7,'seven restored subscriptions');
     fixture.setMode('subscription-error');fixture.disconnectClients();
     await nav('System');await until(async()=>(await page.locator('.connection-settings').innerText()).includes('Unknown message type'),'subscription error surfaced');
     fixture.setMode('live');
@@ -95,7 +108,7 @@ async function until(predicate,label,timeout=10000){
       Object.defineProperty(document,'hidden',{configurable:true,value:false});
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    await until(()=>fixture.stats().subscriptions===4,'visible page resumes');await equalRow('Heartbeat','Online');
+    await until(()=>fixture.stats().subscriptions===7,'visible page resumes');await equalRow('Heartbeat','Online');
     results.checks.push('hidden-page telemetry suspension and fresh resume');
 
     await nav('System');
@@ -121,8 +134,8 @@ async function until(predicate,label,timeout=10000){
     assert.ok(seconds>=5&&seconds<=300);
     await delay(seconds*1000);
     const after=await metrics(),messages=fixture.stats().messages-messagesBefore;
-    assert.ok(messages<=4*(seconds*10+3),`Server throttle budget exceeded: ${messages}`);
-    assert.equal(fixture.stats().activeConnections,1);assert.equal(fixture.stats().subscriptions,4);
+    assert.ok(messages<=7*(seconds*10+3),`Server throttle budget exceeded: ${messages}`);
+    assert.equal(fixture.stats().activeConnections,1);assert.equal(fixture.stats().subscriptions,7);
     results.resources={cpuThrottle:4,seconds,messages,taskSeconds:Number((after.TaskDuration-before.TaskDuration).toFixed(3)),heapMiB:Number((after.JSHeapUsedSize/1048576).toFixed(2)),heapDeltaMiB:Number(((after.JSHeapUsedSize-before.JSHeapUsedSize)/1048576).toFixed(2)),domNodes:after.Nodes};
     results.checks.push('bounded traffic and single connection under 4x CPU throttling');
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=CARL Passenger GUI
+Comment=Open the CARL dashboard on the passenger touchscreen
+Exec=@LAUNCHER@
+Icon=@ICON@
+Terminal=false
+StartupNotify=false
+Categories=Utility;

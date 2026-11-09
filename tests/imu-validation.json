@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-05",
+  "topics": {
+    "/carl/imu": "sensor_msgs/msg/Imu",
+    "/carl/imu/temperature": "sensor_msgs/msg/Temperature",
+    "/carl/imu/diagnostics": "std_msgs/msg/String"
+  },
+  "publisher_changes_required": false,
+  "gui": {
+    "lint": "passed",
+    "typecheck": "passed",
+    "unit_tests": 46,
+    "production_build": "passed",
+    "fixture_browser": "passed",
+    "live_browser": {
+      "source": "live ROS via rosbridge",
+      "accelX": "0.347 m/s\u00b2",
+      "gyroX": "0.131 rad/s",
+      "temperature": "26.832 \u00b0C",
+      "sensor": "MPU-9250",
+      "orientation": "Not provided",
+      "diagnostics": "Online",
+      "topics": [
+        "/carl/heartbeat",
+        "/carl/throttle_status",
+        "/carl/encoders",
+        "/carl/steering_angle",
+        "/carl/imu",
+        "/carl/imu/temperature",
+        "/carl/imu/diagnostics"
+      ],
+      "vehicleCommands": 0,
+      "errors": []
+    }
+  },
+  "controls": {
+    "unit_test_files_passed": 5,
+    "desktop_mobile_fixture_browser": "passed",
+    "desktop_mobile_live_ros_browser": "passed",
+    "checks": [
+      "signed SI units",
+      "zero readings",
+      "invalid and missing data",
+      "raw JSON preservation",
+      "independent topic freshness",
+      "disconnect and reconnect",
+      "current sensor faults vs historical error counts",
+      "no horizontal overflow",
+      "zero command publications"
+    ]
+  },
+  "freshness_ms": {
+    "imu_motion": 500,
+    "imu_temperature": 1000,
+    "imu_diagnostics": 2500
+  },
+  "display_rate_limit_hz": 10,
+  "vehicle_command_publications_during_browser_checks": 0,
+  "notes": [
+    "Acceleration includes gravity in sensor axes.",
+    "IMU die temperature is separate from ambient temperature.",
+    "Orientation/heading are unavailable in the current raw MPU stream.",
+    "Tests used both a localhost ROS fixture and the existing live rosbridge; no drive commands were issued."
+  ]
+}

@@ -1,8 +1,8 @@
 'use strict';
 // Local integration fixture only; never opens a vehicle transport.
 const { WebSocketServer } = require('next/dist/compiled/ws');
-const TOPICS = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle'];
-const MODES = new Set(['live','pause','malformed','estop','silent','steering','steering-uncalibrated','steering-fault','subscription-error']);
+const TOPICS = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle','/carl/imu','/carl/imu/temperature','/carl/imu/diagnostics'];
+const MODES = new Set(['live','pause','malformed','estop','silent','steering','steering-uncalibrated','steering-fault','subscription-error','imu-pause','imu-malformed','imu-fault','imu-recovered']);
 
 function startFixture({port=9192}={}) {
   const server = new WebSocketServer({host:'127.0.0.1',port});
@@ -39,10 +39,17 @@ function startFixture({port=9192}={}) {
           :mode==='steering-uncalibrated'?{status:1,valid:true,calibrated:false,sensor_voltage:2.5,angle_rad:null}
           :mode==='steering-fault'?{status:2,valid:false,calibrated:false,sensor_voltage:0,angle_rad:null}
           :{status:128,valid:false,calibrated:false,sensor_voltage:null,angle_rad:null},
+        '/carl/imu':{linear_acceleration:{x:mode==='imu-malformed'?null:1.25,y:-2.5,z:9.80665},
+          angular_velocity:{x:.1,y:-.2,z:0},orientation:{x:0,y:0,z:0,w:0},orientation_covariance:[-1,0,0,0,0,0,0,0,0]},
+        '/carl/imu/temperature':{temperature:mode==='imu-malformed'?null:34.125,variance:0},
+        '/carl/imu/diagnostics':{data:mode==='imu-malformed'?'bad json':JSON.stringify({schema:1,sensor:'MPU-9250',
+          interface:'spi',ready:mode!=='imu-fault',stage:mode==='imu-fault'?'retry_wait':'ready',
+          error:mode==='imu-fault'?'data_timeout':'ok',error_count:['imu-fault','imu-recovered'].includes(mode)?5:0})},
         '/carl/encoders':{rear_left_counts:12480+step*4,rear_right_counts:12464+step*4},
       };
       const now=Date.now();
       for(const [topic,sub] of subscriptions) {
+        if(mode==='imu-pause' && topic.startsWith('/carl/imu')) continue;
         if(now-sub.last<sub.rate || !messages[topic]) continue;
         sub.last=now;
         stats.messages++;

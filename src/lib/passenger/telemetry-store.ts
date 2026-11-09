@@ -1,13 +1,14 @@
 import { createDashboardData, finiteNumber, sanitizeDashboardData, type DashboardData, type Health } from './dashboard';
 
-export type TelemetryTopic = 'heartbeat' | 'throttleStatus' | 'encoders' | 'steeringAngle';
-type Reading = Record<string, number | boolean | null>;
+export type TelemetryTopic = 'heartbeat' | 'throttleStatus' | 'encoders' | 'steeringAngle' | 'imu' | 'imuTemperature' | 'imuDiagnostics';
+type Reading = Record<string, number | boolean | string | null>;
 export interface Sample { value: Reading; receivedAt: number; }
 export interface TelemetryState {
   connected: boolean;
   samples: Partial<Record<TelemetryTopic, Sample>>;
 }
-export const FRESH_MS = { heartbeat: 1000, throttleStatus: 1000, encoders: 1000, steeringAngle: 250 } as const;
+export const FRESH_MS = { heartbeat: 1000, throttleStatus: 1000, encoders: 1000, steeringAngle: 250,
+  imu: 500, imuTemperature: 1000, imuDiagnostics: 2500 } as const;
 export const DISPLAY_PERIOD_MS = 100;
 export const THROTTLE_LABELS = ['Initializing', 'Idle', 'Driving', 'Safe stop', 'E-stop'] as const;
 const MODE_LABELS = ['Idle', 'Teleop', 'E-stop'] as const;
@@ -30,6 +31,34 @@ function encoderCount(value: unknown): value is number {
 function normalize(topic: TelemetryTopic, value: unknown): Reading | null {
   if (!object(value)) return null;
   switch (topic) {
+    case 'imu': {
+      const a = value.linear_acceleration, g = value.angular_velocity;
+      if (!object(a) || !object(g)) return null;
+      const ax = finiteNumber(a.x), ay = finiteNumber(a.y), az = finiteNumber(a.z);
+      const gx = finiteNumber(g.x), gy = finiteNumber(g.y), gz = finiteNumber(g.z);
+      if ([ax, ay, az, gx, gy, gz].some(v => v === null)) return null;
+      const covariance = value.orientation_covariance;
+      const q = value.orientation;
+      const orientation = Array.isArray(covariance) && covariance[0] === -1 ? false
+        : object(q) && [q.x, q.y, q.z, q.w].every(v => finiteNumber(v) !== null)
+          && Math.abs((q.x as number) ** 2 + (q.y as number) ** 2 + (q.z as number) ** 2 + (q.w as number) ** 2 - 1) < 0.1 ? true : null;
+      return { ax, ay, az, gx, gy, gz, orientation };
+    }
+    case 'imuTemperature': {
+      const temperature = finiteNumber(value.temperature, -273.15);
+      return temperature === null ? null : { temperature };
+    }
+    case 'imuDiagnostics': {
+      if (typeof value.data !== 'string' || value.data.length > 4096) return null;
+      let d: unknown;
+      try { d = JSON.parse(value.data); } catch { return null; }
+      if (!object(d) || d.schema !== 1 || typeof d.ready !== 'boolean' || !integer(d.error_count, 65535)) return null;
+      for (const key of ['sensor', 'stage', 'error']) {
+        if (typeof d[key] !== 'string' || (d[key] as string).length > 64) return null;
+      }
+      return { sensor: d.sensor as string, stage: d.stage as string, error: d.error as string,
+        ready: d.ready, error_count: d.error_count };
+    }
     case 'heartbeat': {
       const { counter, flags, mode } = value;
       return integer(counter, 255) && integer(flags, 255) && integer(mode, 2)
@@ -93,6 +122,23 @@ export function projectTelemetry(state: TelemetryState, now: number): DashboardD
   data.heartbeat = health(state, 'heartbeat', now);
   data.throttleController = health(state, 'throttleStatus', now);
   data.steeringController = health(state, 'steeringAngle', now);
+  data.imuHealth = health(state, 'imu', now);
+  data.imuTemperatureHealth = health(state, 'imuTemperature', now);
+  data.imuDiagnosticsHealth = health(state, 'imuDiagnostics', now);
+  const imu = fresh(state, 'imu', now);
+  const temperature = fresh(state, 'imuTemperature', now);
+  const diagnostics = fresh(state, 'imuDiagnostics', now);
+  if (imu) {
+    data.imuAccelX = imu.ax as number; data.imuAccelY = imu.ay as number; data.imuAccelZ = imu.az as number;
+    data.imuGyroX = imu.gx as number; data.imuGyroY = imu.gy as number; data.imuGyroZ = imu.gz as number;
+    data.imuOrientationAvailable = imu.orientation as boolean | null;
+  }
+  if (temperature) data.imuTemperatureC = temperature.temperature as number;
+  if (diagnostics) {
+    data.imuSensor = diagnostics.sensor as string; data.imuStage = diagnostics.stage as string;
+    data.imuError = diagnostics.error as string; data.imuErrorCount = diagnostics.error_count as number;
+    data.imuDiagnosticsHealth = diagnostics.error !== 'ok' ? 'fault' : diagnostics.ready ? 'online' : 'unknown';
+  }
   const hb = fresh(state, 'heartbeat', now);
   const throttle = fresh(state, 'throttleStatus', now);
   const encoder = fresh(state, 'encoders', now);

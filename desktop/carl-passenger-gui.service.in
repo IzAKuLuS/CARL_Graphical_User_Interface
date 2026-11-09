@@ -1,0 +1,8 @@
+[Unit]
+Description=CARL passenger dashboard server
+
+[Service]
+Type=simple
+ExecStart=@PYTHON@ @LAUNCHER@ --serve
+Restart=on-failure
+RestartSec=2

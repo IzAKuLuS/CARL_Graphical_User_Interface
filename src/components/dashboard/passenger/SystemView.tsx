@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { ChevronRight, Expand } from 'lucide-react';
+import { ChevronRight, Expand, LogOut } from 'lucide-react';
 
 interface SystemProps {
   healthyConnection: boolean;
@@ -17,6 +17,9 @@ interface SystemProps {
 function SystemView({ healthyConnection, connectionError, onReconnect, isConnecting,
   unit, setUnit, hour24, setHour24, referenceClock, setReferenceClock }: SystemProps) {
   const [fullscreenError, setFullscreenError] = useState('');
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState('');
   const connectionLabel = connectionError ?? (healthyConnection ? 'Rosbridge connected' : 'Rosbridge disconnected');
   const canRetry = !isConnecting && (!healthyConnection || !!connectionError);
   const retryLabel = isConnecting ? 'Connecting…' : canRetry ? 'Retry connection' : 'Connected';
@@ -28,6 +31,22 @@ function SystemView({ healthyConnection, connectionError, onReconnect, isConnect
       setFullscreenError('');
     } catch {
       setFullscreenError('Fullscreen is unavailable in this browser. Open the dashboard in a separate browser window.');
+    }
+  }
+
+  async function closeLocalGui() {
+    setClosing(true);
+    setCloseError('');
+    try {
+      const response = await fetch('/api/close-local-gui', { method: 'POST' });
+      if (!response.ok) {
+        const result = await response.json() as { error?: string };
+        throw new Error(result.error || 'The local launcher did not accept the close request.');
+      }
+      window.close(); // The desktop launcher also closes the kiosk if Chromium blocks this.
+    } catch (error) {
+      setCloseError(error instanceof Error ? error.message : 'Could not close the local GUI.');
+      setClosing(false);
     }
   }
 
@@ -70,6 +89,21 @@ function SystemView({ healthyConnection, connectionError, onReconnect, isConnect
             <Expand /><span>Toggle fullscreen</span><ChevronRight />
           </button>
           {fullscreenError && <p className="section-note" role="status">{fullscreenError}</p>}
+          <button className="action-row" onClick={() => { setConfirmClose(true); setCloseError(''); }}>
+            <LogOut /><span>Close local GUI</span><ChevronRight />
+          </button>
+          {confirmClose && (
+            <div className="close-gui-confirmation">
+              <p>Close this display and its local GUI server? CARL control processes will keep running.</p>
+              <div className="close-gui-buttons">
+                <button disabled={closing} onClick={() => setConfirmClose(false)}>Cancel</button>
+                <button disabled={closing} onClick={() => void closeLocalGui()}>
+                  {closing ? 'Closing…' : 'Close GUI'}
+                </button>
+              </div>
+            </div>
+          )}
+          {closeError && <p className="section-note" role="alert">{closeError}</p>}
           <p className="section-note">
             Designed at 1024 × 600. Layout scales proportionally on other landscape displays.
             Preferences last for this session.

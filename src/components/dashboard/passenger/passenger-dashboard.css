@@ -80,6 +80,11 @@
 .prototype-stage .action-row svg { width: 1.7cqw; height: 1.7cqw; }
 .prototype-stage .action-row > span { flex: 1; }
 .prototype-stage .action-row:hover { color: #c2d8f7; }
+.prototype-stage .close-gui-confirmation { margin-top: 1.5cqh; padding: 1.5cqh 1.5cqw; border: 1px solid #5b6068; border-radius: .5cqw; background: #15181d; font-size: 1.2cqw; line-height: 1.45; }
+.prototype-stage .close-gui-confirmation p { margin: 0 0 1.5cqh; }
+.prototype-stage .close-gui-buttons { display: flex; gap: 1cqw; justify-content: flex-end; }
+.prototype-stage .close-gui-buttons button { min-height: 5cqh; padding: .7cqh 1.3cqw; border: 1px solid #858b94; border-radius: .4cqw; }
+.prototype-stage .close-gui-buttons button:last-child { background: #e9edf2; color: #11151a; }
 @media (prefers-reduced-motion: reduce) { .prototype-stage *, .prototype-stage *:after { transition: none !important; } }
 .prototype-stage .additional-readings { margin-top: 4cqh; }
 .prototype-stage .connection-settings { display: flex; align-items: center; justify-content: space-between; gap: 2cqw; margin-bottom: 2cqh; }

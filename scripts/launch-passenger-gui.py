@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -16,6 +17,7 @@ from urllib.request import urlopen
 ROOT = Path(__file__).resolve().parents[1]
 URL = "http://127.0.0.1:3215/"
 SERVICE = "carl-passenger-gui.service"
+CONTROL_SOCKET = Path(os.environ.get("XDG_RUNTIME_DIR", f"/run/user/{os.getuid()}")) / "carl-passenger-gui.sock"
 DISPLAY_RE = re.compile(
     r"^(\S+) connected(?: primary)? (\d+)x(\d+)\+(-?\d+)\+(-?\d+) \((normal|left|right|inverted)"
 )
@@ -71,12 +73,32 @@ def wait_for_server():
     fail("The local GUI server did not become ready within 30 seconds. Check the launcher log.")
 
 
+def close_kiosk(browser_pid):
+    """Close only the X11 kiosk window owned by our dedicated browser process."""
+    clients = subprocess.run(["xprop", "-root", "_NET_CLIENT_LIST"],
+                             text=True, capture_output=True, check=True)
+    matches = []
+    for window_id in re.findall(r"0x[0-9a-fA-F]+", clients.stdout):
+        props = subprocess.run(["xprop", "-id", window_id, "_NET_WM_PID", "WM_NAME"],
+                               text=True, capture_output=True, check=False)
+        if (re.search(rf"_NET_WM_PID\(CARDINAL\) = {browser_pid}(?:\s|$)", props.stdout)
+                and re.search(r'WM_NAME\([^)]+\) = "CARL Vehicle Dashboard"', props.stdout)):
+            matches.append(window_id)
+    if len(matches) != 1:
+        raise RuntimeError(f"Expected one CARL kiosk window for browser {browser_pid}, found {len(matches)}")
+    subprocess.run(["xkill", "-id", matches[0]], check=True,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def main():
     if not (ROOT / ".next" / "BUILD_ID").is_file():
         fail("No production build found. Run 'npm ci' and 'npm run build' in the GUI repository first.")
     browser = shutil.which("chromium-browser") or shutil.which("chromium")
     if not browser:
         fail("Chromium is not installed or is not on PATH.")
+    for program in ("xrandr", "xprop", "xkill"):
+        if not shutil.which(program):
+            fail(f"{program} is required for touchscreen placement and clean kiosk exit.")
     node = shutil.which("node")
     if not node or not (ROOT / "node_modules/next/dist/bin/next").is_file():
         fail("Node.js or Next.js is missing. Run 'npm ci' in the GUI repository first.")
@@ -104,14 +126,49 @@ def main():
                if browser.startswith("/snap/") or browser == "/usr/bin/chromium-browser"
                else state / "chromium-profile")
     with log:
-        window = subprocess.Popen([
-            browser, "--ozone-platform=x11", "--no-first-run",
-            "--no-default-browser-check", "--disable-session-crashed-bubble",
-            f"--user-data-dir={profile}", f"--window-position={x},{y}",
-            f"--window-size={width},{height}", "--kiosk", f"--app={URL}",
-        ], stdout=log, stderr=subprocess.STDOUT)
-        if window.wait():
-            fail("Chromium exited with an error. Check the launcher log.")
+        requested_close = False
+        listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            CONTROL_SOCKET.unlink(missing_ok=True)
+            listener.bind(str(CONTROL_SOCKET))
+            CONTROL_SOCKET.chmod(0o600)
+            listener.listen(1)
+            listener.settimeout(0.5)
+            window = subprocess.Popen([
+                browser, "--ozone-platform=x11", "--no-first-run",
+                "--no-default-browser-check", "--disable-session-crashed-bubble",
+                f"--user-data-dir={profile}", f"--window-position={x},{y}",
+                f"--window-size={width},{height}", "--kiosk", f"--app={URL}",
+            ], stdout=log, stderr=subprocess.STDOUT)
+            while window.poll() is None:
+                try:
+                    connection, _ = listener.accept()
+                except socket.timeout:
+                    continue
+                with connection:
+                    connection.settimeout(2)
+                    if connection.recv(32) == b"CLOSE\n":
+                        connection.sendall(b"OK\n")
+                        requested_close = True
+                        break
+            if requested_close:
+                time.sleep(0.4)  # Let the browser receive the successful response.
+                if window.poll() is None:
+                    close_kiosk(window.pid)
+                    window.wait(timeout=5)
+            elif window.returncode:
+                log.write(f"Chromium exited with status {window.returncode}.\n")
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                RuntimeError) as error:
+            log.write(f"Could not close the CARL kiosk cleanly: {error}\n")
+            fail("Could not close the CARL kiosk. Press Alt+F4 or close its window from the desktop.")
+        finally:
+            listener.close()
+            CONTROL_SOCKET.unlink(missing_ok=True)
+            stopped = subprocess.run(["systemctl", "--user", "stop", SERVICE],
+                                     text=True, capture_output=True)
+            if stopped.returncode:
+                log.write(f"Could not stop the GUI service: {stopped.stderr.strip()}\n")
 
 
 def serve():

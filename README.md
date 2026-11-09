@@ -28,7 +28,8 @@ For development with hot reload, use `npm run dev` instead of the build/start co
 ### Passenger touchscreen launcher (Linux)
 
 The launcher, icon image, and service templates are included in this repository.
-On each computer after cloning, install Node.js and Chromium, run `npm ci` and
+On each computer after cloning, install Node.js, Chromium, and the X11 tools
+`xrandr`, `xprop`, and `xkill`; run `npm ci` and
 `npm run build`, then run `python3 scripts/install-passenger-launcher.py` once
 as the desktop user (without `sudo`). This creates a **CARL Passenger GUI**
 desktop icon and an on-demand user service using that clone's actual path.
@@ -41,8 +42,11 @@ orientation, or position of other monitors. On this laptop the touchscreen is
 `HDMI-1` at `1024x600+0+0`. Set `CARL_TOUCHSCREEN_OUTPUT` in the launcher
 environment if a future setup has more than one matching display.
 
-The GUI service stays available if the browser closes. To stop only that service,
-run `systemctl --user stop carl-passenger-gui.service`. Its log is available with
+Under System, **Close local GUI** confirms and closes the kiosk and its GUI
+service, returning the touchscreen to the desktop. Closing the kiosk with
+Alt+F4 also stops the GUI service. Neither action stops CARL bringup, rosbridge,
+or any control process. To stop only the GUI service from a terminal, run
+`systemctl --user stop carl-passenger-gui.service`. Its log is available with
 `journalctl --user -u carl-passenger-gui.service`. This launcher does not start
 CARL's ROS bridge, rosbridge, or any control process; without them the dashboard
 still opens with telemetry unavailable. Ubuntu's Chromium Snap uses its own

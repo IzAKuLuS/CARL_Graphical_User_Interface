@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
 import { ChevronRight, Expand, LogOut } from 'lucide-react';
+import { closeLocalGui } from '../../../lib/close-local-gui';
 
 interface SystemProps {
   healthyConnection: boolean;
@@ -10,12 +11,10 @@ interface SystemProps {
   setUnit: (unit: 'km/h' | 'mph') => void;
   hour24: boolean;
   setHour24: (value: boolean) => void;
-  referenceClock: boolean;
-  setReferenceClock: (value: boolean) => void;
 }
 
 function SystemView({ healthyConnection, connectionError, onReconnect, isConnecting,
-  unit, setUnit, hour24, setHour24, referenceClock, setReferenceClock }: SystemProps) {
+  unit, setUnit, hour24, setHour24 }: SystemProps) {
   const [fullscreenError, setFullscreenError] = useState('');
   const [confirmClose, setConfirmClose] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -34,16 +33,11 @@ function SystemView({ healthyConnection, connectionError, onReconnect, isConnect
     }
   }
 
-  async function closeLocalGui() {
+  async function requestCloseLocalGui() {
     setClosing(true);
     setCloseError('');
     try {
-      const response = await fetch('/api/close-local-gui', { method: 'POST' });
-      if (!response.ok) {
-        const result = await response.json() as { error?: string };
-        throw new Error(result.error || 'The local launcher did not accept the close request.');
-      }
-      window.close(); // The desktop launcher also closes the kiosk if Chromium blocks this.
+      await closeLocalGui();
     } catch (error) {
       setCloseError(error instanceof Error ? error.message : 'Could not close the local GUI.');
       setClosing(false);
@@ -78,10 +72,6 @@ function SystemView({ healthyConnection, connectionError, onReconnect, isConnect
             <span>24-hour clock</span>
             <input type="checkbox" role="switch" checked={hour24} onChange={event => setHour24(event.target.checked)} />
           </label>
-          <label className="setting-row">
-            <span>Use concept date & time</span>
-            <input type="checkbox" role="switch" checked={referenceClock} onChange={event => setReferenceClock(event.target.checked)} />
-          </label>
         </section>
         <section className="detail-section">
           <h2>Screen</h2>
@@ -97,7 +87,7 @@ function SystemView({ healthyConnection, connectionError, onReconnect, isConnect
               <p>Close this display and its local GUI server? CARL control processes will keep running.</p>
               <div className="close-gui-buttons">
                 <button disabled={closing} onClick={() => setConfirmClose(false)}>Cancel</button>
-                <button disabled={closing} onClick={() => void closeLocalGui()}>
+                <button disabled={closing} onClick={() => void requestCloseLocalGui()}>
                   {closing ? 'Closing…' : 'Close GUI'}
                 </button>
               </div>

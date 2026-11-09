@@ -10,8 +10,8 @@ import SystemView from './SystemView';
 import './passenger-dashboard.css';
 
 const NAV: { page: Page; icon: LucideIcon }[] = [
-  { page: 'Drive', icon: CarFront },
   { page: 'Telemetry', icon: ChartNoAxesColumnIncreasing },
+  { page: 'Drive', icon: CarFront },
   { page: 'System', icon: Settings },
 ];
 
@@ -27,7 +27,6 @@ function PassengerDashboard({ data: rawData, connectionError, onReconnect, isCon
   const data = sanitizeDashboardData(rawData);
   const [page, setPage] = useState<Page>('Drive');
   const [unit, setUnit] = useState<'km/h' | 'mph'>('km/h');
-  const [referenceClock, setReferenceClock] = useState(false);
   const [hour24, setHour24] = useState(true);
   const speed = speedValue(data, unit);
   const healthyConnection = data.connection === 'online';
@@ -39,7 +38,7 @@ function PassengerDashboard({ data: rawData, connectionError, onReconnect, isCon
           throttleFaults={data.throttleFaults} estopActive={data.estopActive}
           throttleController={data.throttleController} steeringController={data.steeringController}
           ambientC={data.ambientC} batteryPercent={data.batteryPercent} sample={data.sample}
-          referenceClock={referenceClock} hour24={hour24} />
+          hour24={hour24} />
         <main className="main-area" id="main-content">
           {page === 'Drive' && (
             <DriveView healthyConnection={healthyConnection} heartbeat={data.heartbeat}
@@ -49,7 +48,7 @@ function PassengerDashboard({ data: rawData, connectionError, onReconnect, isCon
           {page === 'System' && (
             <SystemView healthyConnection={healthyConnection} connectionError={connectionError}
               onReconnect={onReconnect} isConnecting={isConnecting} unit={unit} setUnit={setUnit}
-              hour24={hour24} setHour24={setHour24} referenceClock={referenceClock} setReferenceClock={setReferenceClock} />
+              hour24={hour24} setHour24={setHour24} />
           )}
           {data.sample && <div className="view-footer">
             <span className="preview-disclaimer">Preview · sample data</span>

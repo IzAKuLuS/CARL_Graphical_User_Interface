@@ -11,17 +11,17 @@ const render=(type,props)=>renderToStaticMarkup(React.createElement(type,props))
 
 test('safe-stop and e-stop status never look healthy when fault bits are missing',()=>{
   for(const throttle of ['Safe stop','E-stop']){
-    const html=render(Header,{...createDashboardData(),throttle,throttleFaults:0,referenceClock:true,hour24:true});
+    const html=render(Header,{...createDashboardData(),throttle,throttleFaults:0,hour24:true});
     assert.match(html,new RegExp(`Throttle status: ${throttle}[^]*?health-dot fault`));
   }
 });
 
 test('unknown live inputs remain unavailable in accessible header labels',()=>{
-  const html=render(Header,{...createDashboardData(),referenceClock:true,hour24:true});
+  const html=render(Header,{...createDashboardData(),hour24:true});
   assert.match(html,/Throttle status: Unavailable/);
   assert.match(html,/Ambient temperature: Sensor planned/);
   assert.match(html,/Battery: BMS planned/);
-  assert.match(html,/29 OCT 2026/);
+  assert.match(html,/class="clock" aria-label="—, —"/);
 });
 
 test('drive view retains offline, stale, unknown-speed and unit presentation',()=>{

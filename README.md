@@ -42,6 +42,11 @@ orientation, or position of other monitors. On this laptop the touchscreen is
 `HDMI-1` at `1024x600+0+0`. Set `CARL_TOUCHSCREEN_OUTPUT` in the launcher
 environment if a future setup has more than one matching display.
 
+The first screen is a black welcome view. **Start CARL** currently performs only
+the display animation: the button fades, the title remains for five seconds,
+then the dashboard fades in. It does not start CARL hardware or ROS processes.
+**Exit GUI** on this screen closes the kiosk and its local GUI service.
+
 Under System, **Close local GUI** confirms and closes the kiosk and its GUI
 service, returning the touchscreen to the desktop. Closing the kiosk with
 Alt+F4 also stops the GUI service. Neither action stops CARL bringup, rosbridge,

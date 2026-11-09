@@ -41,7 +41,31 @@ async function until(predicate,label,timeout=10000){
     };
     const equalRow=async(label,value)=>until(async()=>await row(label).innerText()===value,`${label}: ${value}`);
     const indicator=async(name,health)=>until(async()=>await page.getByRole('img',{name:`${name} Teensy: ${health}`,exact:true}).count()===1,`${name} indicator: ${health}`);
+    const startDashboard=async()=>{
+      await page.getByRole('button',{name:'Start CARL'}).click();
+      await until(async()=>await page.locator('.passenger-dashboard').count()===1,'dashboard after welcome',12000);
+    };
     await page.goto('http://127.0.0.1:3212');
+    assert.deepEqual(await page.locator('.startup-title span').allTextContents(),['Autonomous','Systems','Lab']);
+    assert.equal(await page.locator('.passenger-dashboard').count(),0,'Dashboard is hidden on first load');
+    const startBounds=await page.getByRole('button',{name:'Start CARL'}).boundingBox();
+    const exitBounds=await page.getByRole('button',{name:'Exit GUI'}).boundingBox();
+    assert.ok(startBounds&&exitBounds);
+    assert.ok(exitBounds.y+exitBounds.height<startBounds.y,'Exit GUI sits above Start CARL');
+    assert.ok(Math.abs(exitBounds.x+exitBounds.width/2-startBounds.x-startBounds.width/2)<1,'Buttons share a center');
+    await page.screenshot({path:'.test-build/browser-welcome.png',animations:'disabled'});
+    assert.equal(await page.getByRole('button',{name:'Exit GUI'}).count(),1);
+    await page.getByRole('button',{name:'Exit GUI'}).click();
+    await until(async()=>await page.locator('.startup-close-error').innerText()==='This action is available only on the local passenger display.','local-only exit feedback');
+    assert.equal(await page.getByRole('button',{name:'Start CARL'}).isEnabled(),true,'Failed exit leaves startup usable');
+    await page.getByRole('button',{name:'Start CARL'}).click();
+    await delay(700);
+    assert.equal(await page.locator('.startup-button').evaluate(el=>getComputedStyle(el).opacity),'0');
+    assert.equal(await page.locator('.startup-title').count(),1,'Title remains during the hold');
+    await until(async()=>await page.locator('.passenger-dashboard').count()===1,'dashboard after welcome',12000);
+    results.checks.push('welcome screen, Exit GUI request and error recovery, button fade and delayed dashboard');
+    assert.deepEqual(await page.locator('.floating-dock button span').allTextContents(),['Telemetry','Drive','System']);
+    assert.equal(await page.locator('.floating-dock button').nth(1).getAttribute('aria-current'),'page');
     await until(async()=>await page.locator('.status-indicator').first().innerText()==='Live','live heartbeat');
     await indicator('Throttle','Online');await indicator('Steering','Stale');
     assert.equal(await page.locator('.view-footer').count(),0,'Production footer labels removed');
@@ -113,16 +137,18 @@ async function until(predicate,label,timeout=10000){
 
     await nav('System');
     await page.getByRole('button',{name:'mph',exact:true}).click();
-    await page.getByRole('switch',{name:'Use concept date & time'}).check();
+    assert.equal(await page.getByRole('switch',{name:'Use concept date & time'}).count(),0);
     await page.getByRole('switch',{name:'24-hour clock'}).uncheck();
-    assert.equal(await page.locator('.clock time').innerText(),'2:32 PM');
+    assert.match(await page.locator('.clock time').innerText(),/\d{1,2}:\d{2}\s*[AP]M/i);
     await nav('Drive');assert.equal(await page.locator('.speed-unit').innerText(),'mph');
     await nav('System');assert.equal(await page.getByRole('button',{name:'mph',exact:true}).getAttribute('aria-pressed'),'true');
     await page.evaluate(()=>{document.documentElement.requestFullscreen=()=>Promise.reject(new Error('Unsupported'));});
     await page.getByRole('button',{name:'Toggle fullscreen'}).click();
     await until(async()=>(await page.locator('.page-content').innerText()).includes('Fullscreen is unavailable'),'fullscreen rejection');
-    await page.getByRole('switch',{name:'Use concept date & time'}).uncheck();
-    results.checks.push('units, clock preferences, navigation persistence and fullscreen failure');
+    await page.getByRole('button',{name:'Close local GUI'}).click();
+    assert.equal(await page.getByRole('button',{name:'Close GUI'}).count(),1,'System close confirmation remains available');
+    await page.getByRole('button',{name:'Cancel'}).click();
+    results.checks.push('centered Drive navigation, units, live clock, System close confirmation and fullscreen failure');
 
     const client=await context.newCDPSession(page);
     await client.send('Emulation.setCPUThrottlingRate',{rate:4});
@@ -147,6 +173,7 @@ async function until(predicate,label,timeout=10000){
     for(const path of ['/common','/sensor-data','/robot/tb3_0']){
       await page.goto(`http://127.0.0.1:3212${path}`);
       await page.waitForURL('http://127.0.0.1:3212/');
+      await startDashboard();
       await until(async()=>await page.locator('.status-indicator').first().innerText()==='Live',`legacy route ${path}`);
     }
     assert.equal(errors.length,0,errors.join('\n'));

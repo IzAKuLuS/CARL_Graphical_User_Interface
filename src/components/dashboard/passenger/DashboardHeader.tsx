@@ -9,7 +9,6 @@ type HeaderReadings = Pick<DashboardData,
   'heartbeat' | 'throttle' | 'throttleFaults' | 'estopActive' | 'throttleController'
   | 'steeringController' | 'ambientC' | 'batteryPercent' | 'sample'>;
 interface HeaderProps extends HeaderReadings {
-  referenceClock: boolean;
   hour24: boolean;
 }
 
@@ -46,7 +45,7 @@ function DashboardHeader(props: HeaderProps) {
           label={batteryPercent === null ? '— %' : `${batteryPercent} %`}
           accessibleLabel={`Battery: ${batteryDescription}`} />
       </div>
-      <DashboardClock reference={props.referenceClock} hour24={props.hour24} />
+      <DashboardClock hour24={props.hour24} />
     </header>
   );
 }

@@ -100,6 +100,36 @@
   transform: translateX(-50%);
 }
 
+.startup-progress { position: absolute; left: 50%; bottom: 3.5rem; width: min(28rem, 80vw); transform: translateX(-50%); animation: startup-appear 650ms ease-out both; }
+.startup-progress-row { display: flex; align-items: center; gap: 1rem; min-height: 2.7rem; font-size: 1.1rem; }
+.startup-progress-icon { width: 2rem; height: 2rem; display: grid; place-items: center; }
+.startup-wave-bars { height: 2rem; display: flex; align-items: center; justify-content: center; gap: 2px; }
+.startup-wave-bars i { display: block; width: 4px; border-radius: 3px; background: #f6f7f8; transform-origin: center; animation: startup-wave 1s ease-in-out infinite; }
+.startup-wave-bars i:nth-child(1), .startup-wave-bars i:nth-child(5) { height: 10px; }
+.startup-wave-bars i:nth-child(2), .startup-wave-bars i:nth-child(4) { height: 18px; }
+.startup-wave-bars i:nth-child(3) { height: 26px; }
+.startup-wave-bars i:nth-child(2) { animation-delay: .1s; }
+.startup-wave-bars i:nth-child(3) { animation-delay: .2s; }
+.startup-wave-bars i:nth-child(4) { animation-delay: .3s; }
+.startup-wave-bars i:nth-child(5) { animation-delay: .4s; }
+@keyframes startup-wave { 0%, 100% { transform: scaleY(.55); opacity: .5; } 50% { transform: scaleY(1.25); opacity: 1; } }
+.startup-error, .startup-message { position: absolute; top: 50%; left: 50%; width: min(42rem, 84vw); transform: translate(-50%, -50%); text-align: center; font-size: 1.25rem; line-height: 1.5; }
+.startup-message { animation: startup-appear 350ms ease-out both; }
+.startup-message-fading { animation: startup-disappear 500ms ease-in both; }
+.startup-error button { min-height: 3.5rem; padding: .7rem 1.5rem; border: 1px solid #fff; border-radius: .6rem; background: #17191c; color: #fff; }
+.startup-error-fading { animation: startup-disappear 500ms ease-in both; pointer-events: none; }
+.startup-welcome-appearing { animation: startup-appear 600ms ease-out both; }
+.startup-mode, .startup-warning { position: absolute; left: 50%; bottom: 3.5rem; width: min(34rem, 84vw); transform: translateX(-50%); text-align: center; animation: startup-appear 700ms ease-out both; }
+.startup-mode h2, .startup-warning h2 { font-weight: 400; font-size: 1.6rem; margin: 0 0 1.5rem; }
+.startup-mode button { display: block; width: 100%; min-height: 3.5rem; margin-top: .8rem; border: 1px solid #747a83; border-radius: .65rem; background: #15181c; color: #fff; font-size: 1.05rem; }
+.startup-mode button:disabled { opacity: .7; }
+.startup-mode-fading { animation: startup-disappear 500ms ease-in both; pointer-events: none; }
+.startup-warning { top: auto; bottom: clamp(3rem, 8vh, 4rem); width: min(42rem, 86vw); transform: translateX(-50%); font-size: 1.2rem; line-height: 1.5; }
+.startup-warning h2 { margin-bottom: 1.2rem; }
+.startup-warning p { margin-bottom: 0; }
+@keyframes startup-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes startup-disappear { from { opacity: 1; } to { opacity: 0; } }
+
 .startup-dashboard,
 .startup-dashboard-loading {
   width: 100%;
@@ -120,5 +150,13 @@
   .startup-title,
   .startup-button,
   .startup-exit { transition-duration: 1ms; }
-  .startup-dashboard-fading { animation-duration: 1ms; }
+  .startup-dashboard-fading,
+  .startup-progress,
+  .startup-error-fading,
+  .startup-message,
+  .startup-message-fading,
+  .startup-welcome-appearing,
+  .startup-mode,
+  .startup-warning { animation-duration: 1ms; }
+  .startup-wave-bars i { animation: none; opacity: 1; }
 }

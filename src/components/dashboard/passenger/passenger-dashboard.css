@@ -37,6 +37,15 @@
 .prototype-stage .speed-baseline { height: 2px; width: 7cqw; background: #b5b8bd; margin-top: 4.4cqh; }
 .prototype-stage .speed-caption { margin-top: 2.4cqh; font-size: 1.52cqw; letter-spacing: -.025em; font-weight: 400; color: #b3b6bd; }
 .prototype-stage .speed-caption > span { padding: 0 .18em; }
+.prototype-stage .drive-stop { position: absolute; right: 4cqw; top: 42%; min-width: 14cqw; min-height: 8cqh; padding: 1cqh 1.5cqw; border: 1px solid #f2a7a7; border-radius: .8cqw; background: #301719; color: #fff; font-size: 1.55cqw; }
+.prototype-stage .drive-stop:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+.prototype-stage .joystick-settings { border-top: 1px solid var(--line); padding-top: 2cqh; margin-bottom: 2cqh; }
+.prototype-stage .joystick-settings h3 { font-size: 1.55cqw; margin: 0 0 1cqh; }
+.prototype-stage .detail-section .joystick-settings { border-top: 0; padding-top: 1cqh; margin-bottom: 1cqh; }
+.prototype-stage .detail-section .joystick-settings h3 { padding-bottom: .7cqh; margin-bottom: .6cqh; }
+.prototype-stage .detail-section .joystick-settings .section-note { margin: .5cqh 0; line-height: 1.3; }
+.prototype-stage .joystick-qr { display: flex; align-items: center; gap: 1.4cqw; padding: 1.5cqh 0 2cqh; overflow-wrap: anywhere; font-size: 1.25cqw; color: #c7cbd0; }
+.prototype-stage .joystick-qr img { flex: none; width: 14cqw; height: 14cqw; background: white; border-radius: .4cqw; }
 .prototype-stage .view-footer { position: absolute; bottom: 2.6cqh; right: 2.35cqw; display: flex; justify-content: flex-end; align-items: center; height: 3cqh; }
 .prototype-stage .preview-disclaimer { color: var(--muted); font-size: 1.07cqw; }
 .prototype-stage .floating-dock { position: absolute; bottom: 1.7cqh; left: .85cqw; right: .85cqw; height: 15.5cqh; border-radius: 1.35cqw; padding: 1.05cqh 2.1cqw; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1.8cqw; justify-items: center; align-items: stretch; background: linear-gradient(110deg, #101214, #0d0f11); }

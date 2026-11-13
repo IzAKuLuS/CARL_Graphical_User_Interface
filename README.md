@@ -42,15 +42,39 @@ orientation, or position of other monitors. On this laptop the touchscreen is
 `HDMI-1` at `1024x600+0+0`. Set `CARL_TOUCHSCREEN_OUTPUT` in the launcher
 environment if a future setup has more than one matching display.
 
-The first screen is a black welcome view. **Start CARL** currently performs only
-the display animation: the button fades, the title remains for five seconds,
-then the dashboard fades in. It does not start CARL hardware or ROS processes.
-**Exit GUI** on this screen closes the kiosk and its local GUI service.
+The first screen is a black welcome view. **Start CARL** holds the title for two
+seconds, then asks the separately managed `carl-operation.service` to start the
+hardware bridge and rosbridge. After those checks pass, choose **Joystick control**
+or **No Control**. Joystick control starts and checks the joystick server;
+No Control leaves it stopped. A five-second physical E-stop reminder then appears
+before the Drive dashboard. The joystick process starts without granting control
+to a browser. After a phone controller disconnects, the supervisor sends zero
+throttle, stops the joystick process, and returns the GUI to **No Control**;
+use **Start CARL Joystick** in System to accept another controller without
+restarting CARL. The System page can also stop that process manually, and shows a
+QR code for the controls app using the host's current non-loopback network address.
+The QR code refreshes as that address changes; the other device must be on a
+network that can reach CARL's port 8001. If the host has several network
+addresses and no clear route, the GUI asks for a network connection instead of
+showing a potentially wrong QR code.
+If the GUI code is updated while its supervisor service is still running, the
+GUI identifies the older service before sending a new control action. After
+CARL has been stopped, the next **Start CARL** restarts that service to load
+the updated code.
+No Control disables this managed joystick server; it is not a hardware interlock
+against an unrelated ROS command publisher.
+**Stop CARL** on Drive and System stops control first, then the hardware bridge
+and rosbridge; the GUI remains open for another startup. The supervisor also
+stops these processes if one exits, feedback fails, or the display stops
+checking in. An error screen reports failure; use the physical E-stop whenever
+motion or vehicle state is uncertain. Software stop does not cut vehicle power.
+**Exit GUI** closes the kiosk and its GUI service; the supervisor stops CARL
+after the display check-in deadline.
 
-Under System, **Close local GUI** confirms and closes the kiosk and its GUI
-service, returning the touchscreen to the desktop. Closing the kiosk with
-Alt+F4 also stops the GUI service. Neither action stops CARL bringup, rosbridge,
-or any control process. To stop only the GUI service from a terminal, run
+Under System, **Close local GUI** stops CARL software first, then closes the
+kiosk and its GUI service, returning the touchscreen to the desktop. Closing
+the kiosk with Alt+F4 also stops the GUI service; the supervisor detects lost
+display check-ins and stops CARL software. To stop only the GUI service from a terminal, run
 `systemctl --user stop carl-passenger-gui.service`. Its log is available with
 `journalctl --user -u carl-passenger-gui.service`. This launcher does not start
 CARL's ROS bridge, rosbridge, or any control process; without them the dashboard

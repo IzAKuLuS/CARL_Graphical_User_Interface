@@ -64,6 +64,9 @@ def install():
     service = (ROOT / "desktop/carl-passenger-gui.service.in").read_text().replace(
         "@PYTHON@", unit_argument(python)).replace(
         "@LAUNCHER@", unit_argument(launcher))
+    operation = (ROOT / "desktop/carl-operation.service.in").read_text().replace(
+        "@PYTHON@", unit_argument(python)).replace(
+        "@SUPERVISOR@", unit_argument(ROOT / "scripts/carl-supervisor.py"))
 
     app = app_dir / "carl-passenger-gui.desktop"
     shortcut = desktop_dir / "CARL Passenger GUI.desktop"
@@ -73,6 +76,9 @@ def install():
         target.chmod(0o755)
     unit.write_text(service)
     unit.chmod(0o644)
+    operation_unit = unit_dir / "carl-operation.service"
+    operation_unit.write_text(operation)
+    operation_unit.chmod(0o644)
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
     if shutil.which("gio"):
         subprocess.run(["gio", "set", str(shortcut), "metadata::trusted", "true"],

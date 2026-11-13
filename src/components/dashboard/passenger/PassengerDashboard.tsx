@@ -20,10 +20,17 @@ export interface PassengerDashboardProps {
   connectionError?: string | null;
   onReconnect?: () => void;
   isConnecting?: boolean;
+  onStopCarl?: () => void;
+  onCloseLocalGui?: () => Promise<void>;
+  controlMode?: 'none' | 'joystick' | null;
+  operationState?: string;
+  onStartJoystick?: () => void;
+  onStopJoystick?: () => void;
 }
 
 /** Presentation only: readings arrive through props; preferences persist across page navigation. */
-function PassengerDashboard({ data: rawData, connectionError, onReconnect, isConnecting = false }: PassengerDashboardProps) {
+function PassengerDashboard({ data: rawData, connectionError, onReconnect, isConnecting = false, onStopCarl, onCloseLocalGui,
+  controlMode, operationState, onStartJoystick, onStopJoystick }: PassengerDashboardProps) {
   const data = sanitizeDashboardData(rawData);
   const [page, setPage] = useState<Page>('Drive');
   const [unit, setUnit] = useState<'km/h' | 'mph'>('km/h');
@@ -42,13 +49,14 @@ function PassengerDashboard({ data: rawData, connectionError, onReconnect, isCon
         <main className="main-area" id="main-content">
           {page === 'Drive' && (
             <DriveView healthyConnection={healthyConnection} heartbeat={data.heartbeat}
-              speed={speed} unit={unit} sample={data.sample} />
+              speed={speed} unit={unit} onStopCarl={onStopCarl} />
           )}
           {page === 'Telemetry' && <TelemetryView data={data} speed={speed} unit={unit} />}
           {page === 'System' && (
             <SystemView healthyConnection={healthyConnection} connectionError={connectionError}
               onReconnect={onReconnect} isConnecting={isConnecting} unit={unit} setUnit={setUnit}
-              hour24={hour24} setHour24={setHour24} />
+              hour24={hour24} setHour24={setHour24} onStopCarl={onStopCarl} onCloseLocalGui={onCloseLocalGui}
+              controlMode={controlMode} operationState={operationState} onStartJoystick={onStartJoystick} onStopJoystick={onStopJoystick} />
           )}
           {data.sample && <div className="view-footer">
             <span className="preview-disclaimer">Preview · sample data</span>

@@ -7,11 +7,11 @@ interface DriveProps {
   heartbeat: Health;
   speed: string | null;
   unit: string;
-  sample: boolean;
+  onStopCarl?: () => void;
 }
 
 /** No dependency on encoder counters or other off-screen telemetry. */
-function DriveView({ healthyConnection, heartbeat, speed, unit, sample }: DriveProps) {
+function DriveView({ healthyConnection, heartbeat, speed, unit, onStopCarl }: DriveProps) {
   const speedLabel = speed === null ? 'Speed unavailable' : `Estimated speed ${speed} ${unit}`;
   return (
     <section className="drive-view" aria-label="Passenger overview">
@@ -31,10 +31,9 @@ function DriveView({ healthyConnection, heartbeat, speed, unit, sample }: DriveP
         </div>
         <div className="speed-unit">{unit}</div>
         <div className="speed-baseline" />
-        <div className="speed-caption">
-          Speed estimate <span>·</span> {speed === null ? 'Planned' : sample ? 'Sample' : 'Estimated'}
-        </div>
+        <div className="speed-caption">Speed estimate</div>
       </div>
+      {onStopCarl && <button type="button" className="drive-stop" onClick={onStopCarl}>Stop CARL</button>}
     </section>
   );
 }

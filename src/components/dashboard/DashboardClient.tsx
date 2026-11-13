@@ -16,7 +16,11 @@ const PRESENCE_LABELS = {
 } as const;
 
 /** React coordinates lifetimes; transport, validation and display scheduling stay independent. */
-export default function DashboardClient() {
+export default function DashboardClient({ onStopCarl, onCloseLocalGui, controlMode, operationState, onStartJoystick, onStopJoystick }: {
+  onStopCarl?: () => void; onCloseLocalGui?: () => Promise<void>;
+  controlMode?: 'none' | 'joystick' | null; operationState?: string;
+  onStartJoystick?: () => void; onStopJoystick?: () => void;
+}) {
   const { isConnected, subscribe, connectionError, connect, isConnecting } = useROS();
   const presence = useCarlPresence(isConnected);
   const session = useMemo(() => new TelemetrySession({ subscribe }), [subscribe]);
@@ -42,6 +46,7 @@ export default function DashboardClient() {
     ...(isConnected ? data : OFFLINE), bridgePresence: PRESENCE_LABELS[presence],
   }), [isConnected, data, presence]);
 
-  return <PassengerDashboard data={displayData} connectionError={connectionError}
+  return <PassengerDashboard data={displayData} connectionError={connectionError} onStopCarl={onStopCarl} onCloseLocalGui={onCloseLocalGui}
+    controlMode={controlMode} operationState={operationState} onStartJoystick={onStartJoystick} onStopJoystick={onStopJoystick}
     onReconnect={connect} isConnecting={isConnecting} />;
 }

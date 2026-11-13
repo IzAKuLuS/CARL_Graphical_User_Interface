@@ -27,6 +27,7 @@ test('unknown live inputs remain unavailable in accessible header labels',()=>{
 test('drive view retains offline, stale, unknown-speed and unit presentation',()=>{
   let html=render(Drive,{healthyConnection:false,heartbeat:'offline',speed:null,unit:'mph',sample:false});
   assert.match(html,/vehicle status unknown/);assert.match(html,/Speed unavailable/);assert.match(html,/>mph</);
+  assert.match(html,/Speed estimate/);assert.doesNotMatch(html,/Planned/);
   html=render(Drive,{healthyConnection:true,heartbeat:'stale',speed:null,unit:'km\/h',sample:false});
   assert.match(html,/Heartbeat stale/);
 });

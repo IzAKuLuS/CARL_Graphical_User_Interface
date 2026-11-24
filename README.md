@@ -4,7 +4,7 @@ A web dashboard for monitoring CARL vehicle telemetry. The passenger display is 
 
 ## How It Works
 
-The Next.js and React frontend connects to a ROS 2 rosbridge server over WebSocket. It detects the CARL bridge through its ROS topics and subscribes to `/carl/encoders`, `/carl/heartbeat`, `/carl/throttle_status`, `/carl/steering_angle`, `/carl/imu`, `/carl/imu/temperature`, and `/carl/imu/diagnostics` to update the dashboard in real time.
+The Next.js and React frontend connects to a ROS 2 rosbridge server over WebSocket. It detects the CARL bridge through its ROS topics and subscribes to `/carl/encoders`, `/carl/velocity`, `/carl/heartbeat`, `/carl/throttle_status`, `/carl/steering_angle`, `/carl/imu`, `/carl/imu/temperature`, and `/carl/imu/diagnostics` to update the dashboard in real time.
 
 ## Run Locally
 
@@ -89,7 +89,7 @@ During your joystick test, open Telemetry and watch left/right encoder counts, t
 
 THR uses `/carl/throttle_status`; STR uses `/carl/steering_angle`. Green indicates recent healthy feedback, amber indicates expired feedback (or the bridge's steering timeout), and red indicates a reported fault or throttle safe/e-stop state. Missing or malformed feedback remains Unknown. Steering calibration is required to display an angle, but not for a healthy STR indicator. These lights describe the available feedback, not a full hardware self-test; heartbeat alone cannot establish either Teensy's status.
 
-Date/time comes from the local browser computer's OS clock and timezone; live time is the default. Correct CARL's OS clock/timezone if needed. Speed remains unavailable until a velocity estimator exists. Ambient temperature and battery percentage remain unavailable until their sensor/BMS inputs exist. The Telemetry page displays IMU acceleration X/Y/Z (m/s², including gravity),
+Date/time comes from the local browser computer's OS clock and timezone; live time is the default. Correct CARL's OS clock/timezone if needed. Speed uses the provisional rear-encoder estimator when its ROS topic is fresh and valid, rounded to a whole km/h or mph. The 43.5-inch rolling distance still needs normal-load ground validation. Ambient temperature and battery percentage remain unavailable until their sensor/BMS inputs exist. The Telemetry page displays IMU acceleration X/Y/Z (m/s², including gravity),
 gyro X/Y/Z (rad/s), and sensor die temperature (°C, separate from ambient air).
 `/carl/imu` is standard `sensor_msgs/msg/Imu`; `/carl/imu/temperature` is
 `sensor_msgs/msg/Temperature`; `/carl/imu/diagnostics` is `std_msgs/msg/String`

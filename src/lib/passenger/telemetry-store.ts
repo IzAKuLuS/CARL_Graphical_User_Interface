@@ -1,13 +1,13 @@
 import { createDashboardData, finiteNumber, sanitizeDashboardData, type DashboardData, type Health } from './dashboard';
 
-export type TelemetryTopic = 'heartbeat' | 'throttleStatus' | 'encoders' | 'steeringAngle' | 'imu' | 'imuTemperature' | 'imuDiagnostics';
+export type TelemetryTopic = 'heartbeat' | 'throttleStatus' | 'encoders' | 'velocity' | 'steeringAngle' | 'imu' | 'imuTemperature' | 'imuDiagnostics';
 type Reading = Record<string, number | boolean | string | null>;
 export interface Sample { value: Reading; receivedAt: number; }
 export interface TelemetryState {
   connected: boolean;
   samples: Partial<Record<TelemetryTopic, Sample>>;
 }
-export const FRESH_MS = { heartbeat: 1000, throttleStatus: 1000, encoders: 1000, steeringAngle: 250,
+export const FRESH_MS = { heartbeat: 1000, throttleStatus: 1000, encoders: 1000, velocity: 500, steeringAngle: 250,
   imu: 500, imuTemperature: 1000, imuDiagnostics: 2500 } as const;
 export const DISPLAY_PERIOD_MS = 100;
 export const THROTTLE_LABELS = ['Initializing', 'Idle', 'Driving', 'Safe stop', 'E-stop'] as const;
@@ -76,6 +76,11 @@ function normalize(topic: TelemetryTopic, value: unknown): Reading | null {
       return encoderCount(rear_left_counts) && encoderCount(rear_right_counts)
         ? { rear_left_counts, rear_right_counts } : null;
     }
+    case 'velocity': {
+      const linear_mps = finiteNumber(value.linear_mps, -10, 10);
+      return typeof value.valid === 'boolean' && linear_mps !== null
+        ? { valid: value.valid, linear_mps } : null;
+    }
     case 'steeringAngle': {
       const { status, valid, calibrated } = value;
       if (!integer(status, 255) || typeof valid !== 'boolean' || typeof calibrated !== 'boolean') return null;
@@ -142,6 +147,7 @@ export function projectTelemetry(state: TelemetryState, now: number): DashboardD
   const hb = fresh(state, 'heartbeat', now);
   const throttle = fresh(state, 'throttleStatus', now);
   const encoder = fresh(state, 'encoders', now);
+  const velocity = fresh(state, 'velocity', now);
   const steering = fresh(state, 'steeringAngle', now);
   if (hb) {
     const flags = hb.flags as number;
@@ -164,6 +170,7 @@ export function projectTelemetry(state: TelemetryState, now: number): DashboardD
     data.encoderLeft = encoder.rear_left_counts as number;
     data.encoderRight = encoder.rear_right_counts as number;
   }
+  if (velocity?.valid === true) data.speedKmh = Math.abs(velocity.linear_mps as number) * 3.6;
   if (steering) {
     // The bridge's timeout sentinel is not evidence of a live steering Teensy.
     // Calibration controls angle display, not whether feedback is healthy.

@@ -90,9 +90,21 @@ def close_kiosk(browser_pid):
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def production_build_is_current(root):
+    build_id = root / ".next" / "BUILD_ID"
+    if not build_id.is_file():
+        return False
+    built_at = build_id.stat().st_mtime_ns
+    watched = [root / 'package.json', root / 'next.config.ts', root / 'next.config.js']
+    watched.extend((root / 'src').rglob('*'))
+    return not any(path.is_file() and path.stat().st_mtime_ns > built_at for path in watched)
+
+
 def main():
     if not (ROOT / ".next" / "BUILD_ID").is_file():
         fail("No production build found. Run 'npm ci' and 'npm run build' in the GUI repository first.")
+    if not production_build_is_current(ROOT):
+        fail("GUI source changed since the production build. Run 'npm run build' in the GUI repository first.")
     browser = shutil.which("chromium-browser") or shutil.which("chromium")
     if not browser:
         fail("Chromium is not installed or is not on PATH.")

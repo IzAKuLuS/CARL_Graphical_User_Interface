@@ -179,7 +179,7 @@ async function until(predicate,label,timeout=10000){
     results.checks.push('stale, malformed, e-stop and fresh-data recovery');
 
     fixture.disconnectClients();await until(()=>fixture.stats().connections>=2,'automatic reconnect');
-    await equalRow('Heartbeat','Online');await until(()=>fixture.stats().subscriptions===7,'seven restored subscriptions');
+    await equalRow('Heartbeat','Online');await until(()=>fixture.stats().subscriptions===8,'eight restored subscriptions');
     fixture.setMode('subscription-error');fixture.disconnectClients();
     await nav('System');await until(async()=>(await page.locator('.connection-settings').innerText()).includes('Unknown message type'),'subscription error surfaced');
     fixture.setMode('live');
@@ -197,7 +197,7 @@ async function until(predicate,label,timeout=10000){
       Object.defineProperty(document,'hidden',{configurable:true,value:false});
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    await until(()=>fixture.stats().subscriptions===7,'visible page resumes');await equalRow('Heartbeat','Online');
+    await until(()=>fixture.stats().subscriptions===8,'visible page resumes');await equalRow('Heartbeat','Online');
     results.checks.push('hidden-page telemetry suspension and fresh resume');
 
     await nav('System');
@@ -221,6 +221,9 @@ async function until(predicate,label,timeout=10000){
     await page.getByRole('switch',{name:'24-hour clock'}).uncheck();
     assert.match(await page.locator('.clock time').innerText(),/\d{1,2}:\d{2}\s*[AP]M/i);
     await nav('Drive');assert.equal(await page.locator('.speed-unit').innerText(),'mph');
+    await until(async()=>await page.locator('.speed-number').innerText()==='3','live mph speed');
+    await nav('Telemetry');await equalRow('Estimated speed','3 mph');
+    assert.match(await page.locator('.detail-row').filter({hasText:'Estimated speed'}).innerText(),/\/carl\/velocity/);
     await nav('System');assert.equal(await page.getByRole('button',{name:'mph',exact:true}).getAttribute('aria-pressed'),'true');
     await page.evaluate(()=>{document.documentElement.requestFullscreen=()=>Promise.reject(new Error('Unsupported'));});
     await page.getByRole('button',{name:'Toggle fullscreen'}).click();
@@ -240,8 +243,8 @@ async function until(predicate,label,timeout=10000){
     assert.ok(seconds>=5&&seconds<=300);
     await delay(seconds*1000);
     const after=await metrics(),messages=fixture.stats().messages-messagesBefore;
-    assert.ok(messages<=7*(seconds*10+3),`Server throttle budget exceeded: ${messages}`);
-    assert.equal(fixture.stats().activeConnections,1);assert.equal(fixture.stats().subscriptions,7);
+    assert.ok(messages<=8*(seconds*10+3),`Server throttle budget exceeded: ${messages}`);
+    assert.equal(fixture.stats().activeConnections,1);assert.equal(fixture.stats().subscriptions,8);
     results.resources={cpuThrottle:4,seconds,messages,taskSeconds:Number((after.TaskDuration-before.TaskDuration).toFixed(3)),heapMiB:Number((after.JSHeapUsedSize/1048576).toFixed(2)),heapDeltaMiB:Number(((after.JSHeapUsedSize-before.JSHeapUsedSize)/1048576).toFixed(2)),domNodes:after.Nodes};
     results.checks.push('bounded traffic and single connection under 4x CPU throttling');
 

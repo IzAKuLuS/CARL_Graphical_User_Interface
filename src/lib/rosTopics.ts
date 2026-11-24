@@ -6,6 +6,7 @@
  */
 import type {
   CarlEncoderFeedbackMessage,
+  CarlVelocityMessage,
   CarlSteeringAngleMessage,
   CarlEstopMessage,
   CarlHeartbeatMessage,
@@ -26,6 +27,7 @@ export interface CarlTopicMessageMap {
   imuTemperature: ImuTemperatureMessage;
   imuDiagnostics: StringMessage;
   encoders: CarlEncoderFeedbackMessage;
+  velocity: CarlVelocityMessage;
   steeringAngle: CarlSteeringAngleMessage;
   throttleStatus: CarlThrottleStatusMessage;
   heartbeat: CarlHeartbeatMessage;
@@ -49,6 +51,7 @@ export const CARL_TOPICS = {
     path: "/carl/encoders",
     type: "carl_msgs/msg/CarlEncoderFeedback",
   },
+  velocity: { path: "/carl/velocity", type: "carl_msgs/msg/CarlVelocity" },
   throttleStatus: {
     path: "/carl/throttle_status",
     type: "carl_msgs/msg/CarlThrottleStatus",

@@ -77,7 +77,7 @@ export function previewData(scenario: Scenario): DashboardData {
 }
 export function speedValue(data: DashboardData, unit: 'km/h' | 'mph') {
   if (data.connection !== 'online' || data.heartbeat !== 'online' || finiteNumber(data.speedKmh, 0) === null) return null;
-  return (unit === 'mph' ? data.speedKmh! * 0.621371 : data.speedKmh!).toFixed(1);
+  return Math.round(unit === 'mph' ? data.speedKmh! * 0.621371 : data.speedKmh!).toString();
 }
 
 /** Invalid readings are unavailable, never silently represented as a healthy zero/full reading. */

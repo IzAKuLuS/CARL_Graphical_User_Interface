@@ -89,7 +89,7 @@ export default function TelemetryView({ data, speed, unit }: TelemetryProps) {
           <section className="detail-section">
             <h3>Motion & steering</h3>
             <Row label="Estimated speed" value={speed === null ? '—' : `${speed} ${unit}`}
-              note={speed === null ? 'Estimator planned' : 'Illustrative reading'} />
+              note="/carl/velocity · provisional rear-wheel estimate" />
             <Row label="Rear left encoder" value={count(data.encoderLeft)} note="/carl/encoders · counts" />
             <Row label="Steering angle" value={data.steeringAngleDeg === null ? '—' : `${data.steeringAngleDeg.toFixed(1)} °`}
               note="/carl/steering_angle · valid + calibrated only" />

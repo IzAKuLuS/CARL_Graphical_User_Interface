@@ -31,6 +31,14 @@ export interface CarlEncoderFeedbackMessage {
   rear_right_counts: number;
 }
 
+export interface CarlVelocityMessage {
+  header: Ros2Header;
+  linear_mps: number;
+  rear_left_mps: number;
+  rear_right_mps: number;
+  valid: boolean;
+}
+
 export type CarlThrottleState = 0 | 1 | 2 | 3 | 4;
 
 export interface CarlThrottleStatusMessage {

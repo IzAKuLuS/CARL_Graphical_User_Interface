@@ -6,7 +6,7 @@ let count = 0;
 function check(name, test) { test(); count++; console.log(`PASS ${name}`); }
 const driving = previewData('driving');
 check('Unavailable speed stays a dash', () => assert.equal(speedValue(previewData('reference'), 'km/h'), null));
-check('Speed units convert correctly', () => { assert.equal(speedValue(driving, 'km/h'), '12.4'); assert.equal(speedValue(driving, 'mph'), '7.7'); });
+check('Speed units convert correctly', () => { assert.equal(speedValue(driving, 'km/h'), '12'); assert.equal(speedValue(driving, 'mph'), '8'); });
 check('Stale heartbeat suppresses speed', () => assert.equal(speedValue({...driving, heartbeat:'stale'}, 'km/h'), null));
 check('Disconnect suppresses all cached readings', () => { const d = sanitizeDashboardData({...driving, connection:'offline'}); for (const key of ['speedKmh','batteryPercent','ambientC','encoderLeft','vehicleMode','estopActive','steeringAngleDeg']) assert.equal(d[key], null); assert.equal(d.steeringController, 'unknown'); });
 check('NaN and infinite speeds are unavailable', () => { for (const speedKmh of [NaN, Infinity, -1]) assert.equal(speedValue({...driving,speedKmh}, 'km/h'), null); });

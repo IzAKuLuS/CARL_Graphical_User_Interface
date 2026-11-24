@@ -1,7 +1,7 @@
 'use strict';
 // Local integration fixture only; never opens a vehicle transport.
 const { WebSocketServer } = require('next/dist/compiled/ws');
-const TOPICS = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/steering_angle','/carl/imu','/carl/imu/temperature','/carl/imu/diagnostics'];
+const TOPICS = ['/carl/heartbeat','/carl/throttle_status','/carl/encoders','/carl/velocity','/carl/steering_angle','/carl/imu','/carl/imu/temperature','/carl/imu/diagnostics'];
 const MODES = new Set(['live','pause','malformed','estop','silent','steering','steering-uncalibrated','steering-fault','subscription-error','imu-pause','imu-malformed','imu-fault','imu-recovered']);
 
 function startFixture({port=9192}={}) {
@@ -46,6 +46,7 @@ function startFixture({port=9192}={}) {
           interface:'spi',ready:mode!=='imu-fault',stage:mode==='imu-fault'?'retry_wait':'ready',
           error:mode==='imu-fault'?'data_timeout':'ok',error_count:['imu-fault','imu-recovered'].includes(mode)?5:0})},
         '/carl/encoders':{rear_left_counts:12480+step*4,rear_right_counts:12464+step*4},
+        '/carl/velocity':{linear_mps:1.23,rear_left_mps:1.23,rear_right_mps:1.23,valid:true},
       };
       const now=Date.now();
       for(const [topic,sub] of subscriptions) {
